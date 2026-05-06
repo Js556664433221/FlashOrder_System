@@ -28,6 +28,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     sku = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
     stock_balance = Column(Integer, nullable=False, default=0)
     price = Column(Float, nullable=False)
     version = Column(Integer, nullable=False, default=1)

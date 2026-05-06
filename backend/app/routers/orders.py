@@ -8,6 +8,7 @@ import uuid
 from ..database import get_db
 from ..models import Product, Order, OrderItem, OrderStatusEnum
 from ..schemas import OrderCreate, OrderResponse, OrderItemResponse, PaymentResponse
+from ..services import StockReservationService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -39,14 +40,18 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
         product = result.scalar_one_or_none()
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
-        if product.stock_balance < item.quantity:
+
+        available = product.physical_stock - product.reserved_stock
+        reserved = await StockReservationService.reserve_stock(db, product.id, item.quantity)
+        if not reserved:
+            await db.rollback()
             raise HTTPException(
                 status_code=400,
-                detail=f"Insufficient stock for {product.name}. Available: {product.stock_balance}, Requested: {item.quantity}"
+                detail=f"Insufficient available stock. "
+                       f"Available: {available}, Requested: {item.quantity}"
             )
-        await db.execute(
-            Product.__table__.update().where(Product.id == product.id).values(stock_balance=Product.stock_balance - item.quantity)
-        )
+        await db.refresh(product)
+
         item_price = product.price * item.quantity
         total_price += item_price
         order_items_data.append({

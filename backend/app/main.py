@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
-from .routers import products_router, orders_router, payments_router
+from .routers import products_router, orders_router, payments_router, admin_router
 
 app = FastAPI(title="FlashOrder Portal API", version="1.0.0")
 
@@ -22,6 +22,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.include_router(products_router)
 app.include_router(orders_router)
 app.include_router(payments_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

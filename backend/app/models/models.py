@@ -1,7 +1,9 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime
 import enum
+import uuid
 
 from ..database import Base
 
@@ -19,11 +21,21 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     sku = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
-    stock_balance = Column(Integer, nullable=False, default=0)
+    description = Column(String, nullable=True)
+    physical_stock = Column(Integer, nullable=False, default=0)
+    reserved_stock = Column(Integer, nullable=False, default=0)
     price = Column(Float, nullable=False)
     version = Column(Integer, nullable=False, default=1)
 
     order_items = relationship("OrderItem", back_populates="product")
+
+    @hybrid_property
+    def available_stock(self):
+        return self.physical_stock - self.reserved_stock
+
+    @available_stock.expression
+    def available_stock(cls):
+        return cls.physical_stock - cls.reserved_stock
 
 
 class Order(Base):
@@ -61,3 +73,10 @@ class Payment(Base):
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
     order = relationship("Order", back_populates="payments")
+
+
+def generate_order_number() -> str:
+    """Generate a unique order number with format FO-YYYYMMDD-XXXX."""
+    date_str = datetime.utcnow().strftime("%Y%m%d")
+    unique_suffix = uuid.uuid4().hex[:4].upper()
+    return f"FO-{date_str}-{unique_suffix}"

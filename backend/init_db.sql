@@ -5,8 +5,11 @@ CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     sku VARCHAR UNIQUE NOT NULL,
     name VARCHAR NOT NULL,
-    stock_balance INTEGER NOT NULL DEFAULT 0,
-    price FLOAT NOT NULL
+    description VARCHAR,
+    physical_stock INTEGER NOT NULL DEFAULT 0,
+    reserved_stock INTEGER NOT NULL DEFAULT 0,
+    price FLOAT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1
 );
 
 -- Orders table
@@ -36,9 +39,9 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 
 -- Sample data
-INSERT INTO products (sku, name, stock_balance, price) VALUES
-('SKU001', 'Wireless Mouse', 50, 29.99),
-('SKU002', 'Mechanical Keyboard', 30, 89.99),
-('SKU003', 'USB-C Hub', 25, 49.99),
-('SKU004', 'Webcam HD', 40, 59.99),
-('SKU005', 'Monitor Stand', 15, 39.99);
+INSERT INTO products (sku, name, description, physical_stock, reserved_stock, price, version) VALUES
+('SKU001', 'Wireless Mouse', 'Ergonomic wireless mouse with adjustable DPI', 50, 0, 29.99, 1),
+('SKU002', 'Mechanical Keyboard', 'RGB mechanical keyboard with Cherry MX switches', 30, 0, 89.99, 1),
+('SKU003', 'USB-C Hub', '7-in-1 USB-C hub with HDMI and ethernet', 25, 0, 49.99, 1),
+('SKU004', 'Webcam HD', '1080p HD webcam with built-in microphone', 40, 0, 59.99, 1),
+('SKU005', 'Monitor Stand', 'Adjustable aluminum monitor stand', 15, 0, 39.99, 1);
