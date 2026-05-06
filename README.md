@@ -74,20 +74,23 @@ cart system/
    pip install -r requirements.txt
    ```
 
-4. Set environment variable (optional):
+4. Set the database URL environment variable:
    ```bash
    export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/flashorder
    ```
-
-5. Create database and initialize schema:
+   Or on Windows:
    ```bash
-   createdb flashorder
-   psql -U postgres -d flashorder -f init_db.sql
+   set DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/flashorder
+   ```
+
+5. Initialize the database:
+   ```bash
+   python init_db.py
    ```
 
 6. Start the server:
    ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+   uvicorn app.main:app --reload --port 8001
    ```
 
 ### Frontend Setup
@@ -106,6 +109,15 @@ cart system/
    ```bash
    npm run dev
    ```
+
+## API Documentation
+
+Interactive API documentation is available via Swagger UI when the server is running:
+
+- **Swagger UI:** http://localhost:8001/docs
+- **ReDoc:** http://localhost:8001/redoc
+
+You can test all API endpoints directly from the Swagger UI interface.
 
 ## API Endpoints
 
@@ -141,6 +153,7 @@ cart system/
 | name         | VARCHAR | Product name         |
 | stock_balance| INTEGER | Available stock      |
 | price        | FLOAT   | Product price         |
+| version      | INTEGER | Optimistic lock version |
 
 ### Orders
 | Column       | Type    | Description                    |

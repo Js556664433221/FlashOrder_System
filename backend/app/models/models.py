@@ -21,6 +21,7 @@ class Product(Base):
     name = Column(String, nullable=False)
     stock_balance = Column(Integer, nullable=False, default=0)
     price = Column(Float, nullable=False)
+    version = Column(Integer, nullable=False, default=1)
 
     order_items = relationship("OrderItem", back_populates="product")
 
