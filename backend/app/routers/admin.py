@@ -388,6 +388,62 @@ async def restock_inventory(
     )
 
 
+@router.post("/orders/{order_id}/confirm-payment", response_model=AdminOrderResponse)
+async def confirm_payment(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: MockUser = Depends(get_current_active_admin)
+):
+    """Admin endpoint to confirm payment. Deducts stock and updates status to Paid."""
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product),
+            selectinload(Order.payments)
+        )
+        .filter(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatusEnum.PAYMENT_UNDER_REVIEW.value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order is not under review. Current status: {order.status}"
+        )
+
+    # Deduct physical_stock and reserved_stock for each item
+    for item in order.items:
+        success = await StockReservationService.commit_reservation(
+            db, item.product_id, item.quantity
+        )
+        if not success:
+            await db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to commit stock for product {item.product_id}"
+            )
+
+    # Update order status to Paid
+    order.status = OrderStatusEnum.PAID.value
+
+    await db.commit()
+
+    # Reload order with relationships
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product),
+            selectinload(Order.payments)
+        )
+        .filter(Order.id == order_id)
+    )
+    order = result.scalar_one()
+    return build_admin_order_response(order)
+
+
 @router.get("/dashboard/summary", response_model=DashboardSummaryResponse)
 async def get_dashboard_summary(
     db: AsyncSession = Depends(get_db),

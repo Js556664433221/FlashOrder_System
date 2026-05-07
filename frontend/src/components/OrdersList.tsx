@@ -121,6 +121,24 @@ export function OrdersList() {
     }
   };
 
+  const handleConfirmPayment = async (orderId: number) => {
+    if (!confirm('Confirm this payment? Stock will be deducted.')) return;
+    setActionLoading(orderId);
+    try {
+      await fetch(`http://localhost:8002/admin/orders/${orderId}/confirm-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Simulated-Role': role || 'admin' },
+      });
+      await loadOrders();
+      fetchOrders();
+      fetchProducts();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleUploadPayment = async (orderId: number, file: File) => {
     setUploadingForOrder(orderId);
     try {
@@ -174,6 +192,7 @@ export function OrdersList() {
                 onRequestCancel={handleRequestCancel}
                 onConfirmCancel={handleConfirmCancel}
                 onForceCancel={handleForceCancel}
+                onConfirmPayment={handleConfirmPayment}
                 onUploadPayment={handleUploadPayment}
                 getStatusColor={getStatusColor}
               />
@@ -221,6 +240,7 @@ interface OrderCardProps {
   onRequestCancel: (id: number) => void;
   onConfirmCancel: (id: number) => void;
   onForceCancel: (id: number) => void;
+  onConfirmPayment: (id: number) => void;
   onUploadPayment: (id: number, file: File) => void;
   getStatusColor: (status: string) => string;
 }
@@ -233,6 +253,7 @@ function OrderCard({
   onRequestCancel,
   onConfirmCancel,
   onForceCancel,
+  onConfirmPayment,
   onUploadPayment,
   getStatusColor,
 }: OrderCardProps) {
@@ -302,6 +323,17 @@ function OrderCard({
               onChange={handleFileChange}
             />
           </label>
+        )}
+
+        {/* Confirm Payment - admin with Payment Under Review */}
+        {isAdmin && order.status === 'Payment Under Review' && (
+          <button
+            onClick={() => onConfirmPayment(order.id)}
+            disabled={actionLoading === order.id}
+            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-300"
+          >
+            {actionLoading === order.id ? 'Processing...' : 'Confirm Payment'}
+          </button>
         )}
 
         {/* Request Cancel - staff */}
