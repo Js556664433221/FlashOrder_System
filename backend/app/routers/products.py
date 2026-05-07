@@ -33,7 +33,8 @@ async def list_products(
         reserved_stock=p.reserved_stock,
         available_stock=p.physical_stock - p.reserved_stock,
         price=p.price,
-        description=p.description
+        description=p.description,
+        image_url=p.image_url
     ) for p in products]
 
 
