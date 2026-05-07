@@ -31,13 +31,15 @@ const initialForm: ProductForm = {
 };
 
 export function ProductManagement() {
-  const { role, fetchProducts: refreshStoreProducts } = useStore();
+  const { fetchProducts: refreshStoreProducts } = useStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductForm>(initialForm);
   const [saving, setSaving] = useState(false);
+
+  const adminRole = 'admin';
 
   useEffect(() => {
     loadProducts();
@@ -47,11 +49,14 @@ export function ProductManagement() {
     setLoading(true);
     try {
       const res = await fetch('http://localhost:8002/admin/products', {
-        headers: { 'X-Simulated-Role': role || 'admin' },
+        headers: { 'X-Simulated-Role': adminRole },
       });
       if (res.ok) {
         const data = await res.json();
         setProducts(data);
+      } else {
+        const err = await res.text();
+        console.error('Load products error:', res.status, err);
       }
     } catch (e) {
       console.error('Failed to load products:', e);
@@ -88,13 +93,15 @@ export function ProductManagement() {
     e.preventDefault();
     setSaving(true);
 
-    const payload = {
+    const payload: Record<string, any> = {
       name: form.name,
-      description: form.description || null,
-      image_url: form.image_url || null,
       price: parseFloat(form.price),
       stock_quantity: parseInt(form.physical_stock),
     };
+    if (form.description) payload.description = form.description;
+    if (form.image_url) payload.image_url = form.image_url;
+
+    console.log('Sending payload:', JSON.stringify(payload));
 
     try {
       const url = editingProduct
@@ -106,27 +113,30 @@ export function ProductManagement() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'X-Simulated-Role': role || 'admin',
+          'X-Simulated-Role': adminRole,
         },
         body: JSON.stringify(payload),
       });
 
+      console.log('Response status:', res.status);
+      const data = await res.text();
+      console.log('Response body:', data);
+
       if (res.ok) {
-        const savedProduct = await res.json();
-        // Update local state immediately
+        const savedProduct = JSON.parse(data);
         if (editingProduct) {
           setProducts(products.map(p => p.id === savedProduct.id ? savedProduct : p));
         } else {
           setProducts([...products, savedProduct]);
         }
-        // Also refresh the store for other components
         refreshStoreProducts();
         handleClose();
       } else {
-        const err = await res.json();
+        const err = JSON.parse(data);
         alert(err.detail || 'Failed to save product');
       }
     } catch (e) {
+      console.error('Submit error:', e);
       alert('Failed to save product');
     } finally {
       setSaving(false);
