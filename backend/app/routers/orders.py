@@ -6,9 +6,9 @@ from datetime import datetime
 import uuid
 
 from ..database import get_db
-from ..models import Product, Order, OrderItem, OrderStatusEnum, User, UserRole
+from ..models import Product, Order, OrderItem, OrderStatusEnum, UserRole
 from ..services import StockReservationService
-from ..auth import get_current_active_user
+from ..auth.dependencies import get_current_active_user, MockUser
 from ..schemas import OrderResponse, OrderItemResponse
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -40,7 +40,7 @@ def build_order_response(order: Order) -> dict:
 @router.get("/")
 async def list_orders(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: MockUser = Depends(get_current_active_user)
 ):
     """List orders with data isolation and full item details."""
     query = select(Order).options(
@@ -60,7 +60,7 @@ async def list_orders(
 async def get_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: MockUser = Depends(get_current_active_user)
 ):
     """Get a single order with ownership check and full item details."""
     result = await db.execute(
@@ -83,7 +83,7 @@ async def get_order(
 async def create_order(
     order_data: dict,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: MockUser = Depends(get_current_active_user)
 ):
     """Create a new order. Staff orders are tagged with their user_id."""
     items = order_data.get("items", [])
@@ -152,7 +152,7 @@ async def create_order(
 async def request_cancel_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: MockUser = Depends(get_current_active_user)
 ):
     """Staff endpoint to request order cancellation."""
     result = await db.execute(select(Order).filter(Order.id == order_id))
@@ -188,7 +188,7 @@ async def request_cancel_order(
 async def upload_payment(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: MockUser = Depends(get_current_active_user)
 ):
     """Upload payment for an order."""
     result = await db.execute(select(Order).filter(Order.id == order_id))

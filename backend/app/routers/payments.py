@@ -7,9 +7,9 @@ import os
 import uuid
 
 from ..database import get_db
-from ..models import Order, OrderStatusEnum, Payment, User
+from ..models import Order, OrderStatusEnum, Payment
 from ..schemas import PaymentResponse
-from ..auth import get_current_active_user
+from ..auth.dependencies import get_current_active_user, MockUser
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -19,7 +19,7 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "upl
 @router.get("/", response_model=list[PaymentResponse])
 async def list_payments(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: MockUser = Depends(get_current_active_user)
 ):
     """List all payments with order details."""
     result = await db.execute(
@@ -46,7 +46,7 @@ async def upload_receipt(
     order_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: MockUser = Depends(get_current_active_user)
 ):
     if file.content_type not in ["image/jpeg", "image/png", "application/pdf"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and PDF are allowed")

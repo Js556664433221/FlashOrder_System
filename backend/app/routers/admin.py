@@ -6,7 +6,7 @@ from datetime import datetime
 import uuid
 
 from ..database import get_db
-from ..models import Product, Order, OrderItem, Payment, OrderStatusEnum, User
+from ..models import Product, Order, OrderItem, Payment, OrderStatusEnum
 from ..schemas import (
     AdminProductCreate, AdminProductUpdate, AdminProductResponse,
     AdminOrderUpdate, AdminOrderResponse, AdminPaymentResponse,
@@ -16,7 +16,7 @@ from ..schemas import (
     ForceCancelResponse
 )
 from ..services import StockReservationService
-from ..auth import get_current_active_admin
+from ..auth.dependencies import get_current_active_admin, MockUser
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -61,6 +61,7 @@ def build_admin_order_response(order: Order) -> AdminOrderResponse:
             product_id=item.product_id,
             quantity=item.quantity,
             unit_price=item.unit_price,
+            product_name=item.product.name if item.product else "Unknown",
             product=AdminProductResponse(
                 id=item.product.id,
                 sku=item.product.sku,
@@ -100,7 +101,7 @@ def build_admin_order_response(order: Order) -> AdminOrderResponse:
 async def create_product(
     product_data: AdminProductCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Add a new product to the inventory."""
     sku = generate_sku()
@@ -124,7 +125,7 @@ async def update_product(
     product_id: int,
     product_data: AdminProductUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Update product details or adjust stock levels."""
     result = await db.execute(select(Product).filter(Product.id == product_id))
@@ -152,7 +153,7 @@ async def update_product(
 @router.get("/orders", response_model=list[AdminOrderResponse])
 async def list_all_orders(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Fetch all orders with associated items and payment details."""
     result = await db.execute(
@@ -171,7 +172,7 @@ async def list_all_orders(
 async def get_order_details(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Fetch a specific order's full details including payment proof and item list."""
     result = await db.execute(
@@ -195,7 +196,7 @@ async def update_order(
     order_id: int,
     order_data: AdminOrderUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Update order fulfillment status and/or payment status."""
     result = await db.execute(
@@ -265,7 +266,7 @@ async def verify_payment(
     order_id: int,
     verify_data: VerifyPaymentRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Admin endpoint to verify payment receipts. Approve = deduct stock, Reject = release stock."""
     result = await db.execute(
@@ -330,7 +331,7 @@ async def verify_payment(
 async def restock_inventory(
     restock_data: RestockRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Admin endpoint to add stock using atomic increment."""
     result = await db.execute(select(Product).filter(Product.id == restock_data.product_id))
@@ -360,7 +361,7 @@ async def restock_inventory(
 @router.get("/dashboard/summary", response_model=DashboardSummaryResponse)
 async def get_dashboard_summary(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Admin endpoint providing global dashboard summary with order stats and low-stock alerts."""
     orders_result = await db.execute(select(Order))
@@ -397,7 +398,7 @@ async def get_dashboard_summary(
 async def force_cancel_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """
     Admin endpoint to force cancel an order.
@@ -449,7 +450,7 @@ async def force_cancel_order(
 async def approve_cancel_request(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    current_user: MockUser = Depends(get_current_active_admin)
 ):
     """
     Admin endpoint to approve a staff's cancel request.

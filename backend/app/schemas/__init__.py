@@ -105,7 +105,13 @@ class OrderItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class OrderItemWithProduct(OrderItemResponse):
+class OrderItemWithProduct(BaseModel):
+    id: int
+    order_id: int
+    product_id: int
+    quantity: int
+    unit_price: float
+    product_name: str = "Unknown"
     product: "AdminProductResponse"
     stock_status: str = "Unknown"
 
