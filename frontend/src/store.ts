@@ -1,14 +1,22 @@
 import { create } from 'zustand';
-import type { Product, CartItem, Order, Payment } from './types';
+import type { Product, CartItem, Order, Payment, User } from './types';
 import { api } from './api';
 
 interface Store {
+  // User state
+  user: User | null;
+  role: 'admin' | 'staff' | null;
+  isAuthenticated: boolean;
+  // Data state
   products: Product[];
   cart: CartItem[];
   orders: Order[];
   searchQuery: string;
   isLoading: boolean;
   error: string | null;
+  // Admin state
+  adminDashboard: AdminDashboard | null;
+  setUser: (user: User | null, role: 'admin' | 'staff' | null) => void;
   setSearchQuery: (q: string) => void;
   fetchProducts: () => Promise<void>;
   addToCart: (product: Product) => void;
@@ -18,22 +26,49 @@ interface Store {
   placeOrder: () => Promise<Order>;
   fetchOrders: () => Promise<void>;
   uploadPayment: (orderId: number, file: File) => Promise<Payment>;
+  // Admin methods
+  fetchDashboard: () => Promise<void>;
+}
+
+interface AdminDashboard {
+  total_orders: number;
+  pending_payments: number;
+  paid_orders: number;
+  cancelled_orders: number;
+  low_stock_alerts: LowStockAlert[];
+  total_revenue: number;
+}
+
+interface LowStockAlert {
+  id: number;
+  sku: string;
+  name: string;
+  physical_stock: number;
+  reserved_stock: number;
+  available_stock: number;
+  threshold: number;
 }
 
 export const useStore = create<Store>((set, get) => ({
+  user: null,
+  role: null,
+  isAuthenticated: false,
   products: [],
   cart: [],
   orders: [],
   searchQuery: '',
   isLoading: false,
   error: null,
+  adminDashboard: null,
+
+  setUser: (user, role) => set({ user, role, isAuthenticated: !!user }),
 
   setSearchQuery: (q) => set({ searchQuery: q }),
 
   fetchProducts: async () => {
     set({ isLoading: true, error: null });
     try {
-      const products = await api.getProducts(get().searchQuery || undefined);
+      const products = await api.getProducts(get().searchQuery || undefined, get().role);
       set({ products, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
@@ -81,14 +116,16 @@ export const useStore = create<Store>((set, get) => ({
       product_id: item.product.id,
       quantity: item.quantity,
     }));
-    const order = await api.createOrder(items);
+    const order = await api.createOrder(items, get().role);
+    // Refresh products and orders after successful order
+    await get().fetchProducts();
     set({ cart: [], orders: [...get().orders, order] });
     return order;
   },
 
   fetchOrders: async () => {
     try {
-      const orders = await api.getOrders();
+      const orders = await api.getOrders(get().role);
       set({ orders });
     } catch (e) {
       set({ error: (e as Error).message });
@@ -96,8 +133,17 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   uploadPayment: async (orderId: number, file: File): Promise<Payment> => {
-    const payment = await api.uploadPayment(orderId, file);
+    const payment = await api.uploadPayment(orderId, file, get().role);
     await get().fetchOrders();
     return payment;
+  },
+
+  fetchDashboard: async () => {
+    try {
+      const dashboard = await api.getDashboard(get().role);
+      set({ adminDashboard: dashboard });
+    } catch (e) {
+      set({ error: (e as Error).message });
+    }
   },
 }));

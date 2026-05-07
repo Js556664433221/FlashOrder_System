@@ -1,24 +1,65 @@
 import { useEffect, useState } from 'react';
-import { ProductList, Cart, PaymentUpload } from './components';
+import { ProductList, Cart, PaymentUpload, Login, AdminDashboard, AdminNavBar, OrdersList } from './components';
 import { useStore } from './store';
 
-type Tab = 'stock' | 'cart' | 'payment';
+type Tab = 'stock' | 'cart' | 'payment' | 'orders';
 
-function App() {
+function ShopApp() {
   const [activeTab, setActiveTab] = useState<Tab>('stock');
-  const { fetchProducts, fetchOrders, cart } = useStore();
+  const { fetchProducts, fetchOrders, cart, user, role, isAuthenticated } = useStore();
 
   useEffect(() => {
-    fetchProducts();
-    fetchOrders();
-  }, []);
+    if (isAuthenticated) {
+      fetchProducts();
+      fetchOrders();
+    }
+  }, [isAuthenticated]);
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const isAdmin = role === 'admin';
+
+  const handleLoginSuccess = () => {
+    fetchProducts();
+    fetchOrders();
+  };
+
+  const handleLogout = () => {
+    useStore.getState().setUser(null, null);
+  };
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-purple-600 text-white p-4 shadow-md">
-        <h1 className="text-xl font-bold text-center">FlashOrder Portal</h1>
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">FlashOrder Portal</h1>
+            <p className="text-sm opacity-75">Welcome, {user?.username} ({user?.role})</p>
+          </div>
+          <div className="flex gap-3">
+            {isAdmin && (
+              <a
+                href="#admin"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded text-sm font-bold"
+              >
+                Admin Panel / 管理中心
+              </a>
+            )}
+            <button
+              onClick={handleLogout}
+              className="bg-white text-purple-600 px-4 py-2 rounded text-sm font-bold hover:bg-gray-100"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
       </header>
 
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -32,6 +73,16 @@ function App() {
             }`}
           >
             Stock
+          </button>
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`flex-1 py-3 text-center font-medium transition-colors ${
+              activeTab === 'orders'
+                ? 'text-purple-600 border-b-2 border-purple-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Orders
           </button>
           <button
             onClick={() => setActiveTab('cart')}
@@ -63,11 +114,22 @@ function App() {
 
       <main className="max-w-4xl mx-auto bg-white shadow-lg min-h-screen">
         {activeTab === 'stock' && <ProductList />}
+        {activeTab === 'orders' && <OrdersList />}
         {activeTab === 'cart' && <Cart />}
         {activeTab === 'payment' && <PaymentUpload />}
+
+        {/* Admin Dashboard Section - only for admins */}
+        {isAdmin && (
+          <div id="admin-section">
+            <AdminNavBar onBackToShop={() => setActiveTab('stock')} />
+            <AdminDashboard />
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-export default App;
+export default function App() {
+  return <ShopApp />;
+}

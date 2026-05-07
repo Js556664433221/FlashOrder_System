@@ -2,32 +2,44 @@ export interface Product {
   id: number;
   sku: string;
   name: string;
-  stock_balance: number;
+  physical_stock: number;
+  reserved_stock: number;
+  available_stock: number;
   price: number;
+  description?: string;
+}
+
+export type UserRole = 'staff' | 'admin';
+
+export interface User {
+  id: number;
+  username: string;
+  role: UserRole;
 }
 
 export interface OrderItem {
-  id: number;
-  order_id: number;
   product_id: number;
+  product_name: string;
   quantity: number;
   unit_price: number;
 }
 
-export type OrderStatus = 'Pending Payment' | 'Payment Under Review' | 'Paid' | 'Cancelled';
+export type OrderStatus = 'Pending Payment' | 'Payment Under Review' | 'Paid' | 'Cancel Requested' | 'Cancelled';
 
 export interface Order {
   id: number;
   order_number: string;
   total_price: number;
-  status: OrderStatus;
+  status: string;
+  user_id: number;
   created_at: string;
-  items?: OrderItem[];
+  items: OrderItem[];
 }
 
 export interface Payment {
   id: number;
   order_id: number;
+  order_number: string;
   receipt_url: string;
   uploaded_at: string;
 }
@@ -41,4 +53,23 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+export interface LowStockAlert {
+  id: number;
+  sku: string;
+  name: string;
+  physical_stock: number;
+  reserved_stock: number;
+  available_stock: number;
+  threshold: number;
+}
+
+export interface AdminDashboard {
+  total_orders: number;
+  pending_payments: number;
+  paid_orders: number;
+  cancelled_orders: number;
+  low_stock_alerts: LowStockAlert[];
+  total_revenue: number;
 }
