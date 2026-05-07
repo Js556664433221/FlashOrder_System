@@ -29,7 +29,8 @@ export const api = {
 
   // Orders
   async getOrders(role?: 'admin' | 'staff' | null): Promise<Order[]> {
-    const res = await fetch(`${API_BASE}/orders/`, { headers: authHeaders(role || 'staff') });
+    const endpoint = role === 'admin' ? '/admin/orders/' : '/orders/';
+    const res = await fetch(`${API_BASE}${endpoint}`, { headers: authHeaders(role || 'staff') });
     if (!res.ok) throw new Error('Failed to fetch orders');
     return res.json();
   },

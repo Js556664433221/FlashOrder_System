@@ -70,8 +70,11 @@ def build_admin_order_response(order: Order) -> AdminOrderResponse:
                 sku=item.product.sku,
                 name=item.product.name,
                 description=item.product.description,
-                stock_balance=item.product.physical_stock - item.product.reserved_stock,
-                price=item.product.price,
+                image_url=item.product.image_url,
+                physical_stock=item.product.physical_stock,
+                reserved_stock=item.product.reserved_stock,
+                available_stock=item.product.physical_stock - item.product.reserved_stock,
+                price=float(item.product.price),
                 version=item.product.version
             ),
             stock_status=get_stock_status(order.status)
