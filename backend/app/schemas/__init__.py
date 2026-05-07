@@ -178,12 +178,23 @@ class PaymentCreate(BaseModel):
     order_id: int
 
 
+class OrderItemHistory(BaseModel):
+    product_name: str
+    product_image_url: str | None = None
+    quantity: int
+    unit_price: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PaymentResponse(BaseModel):
     id: int
     order_id: int
     order_number: str
     receipt_url: str
     uploaded_at: datetime
+    status: str = "Unknown"
+    order_items: list[OrderItemHistory] = []
 
     model_config = ConfigDict(from_attributes=True)
 
