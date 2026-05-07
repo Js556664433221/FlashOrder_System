@@ -4,6 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from datetime import datetime
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ..database import get_db
 from ..models import Product, Order, OrderItem, Payment, OrderStatusEnum
@@ -131,21 +134,26 @@ async def create_product(
     current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Add a new product to the inventory."""
-    sku = generate_sku()
-    product = Product(
-        sku=sku,
-        name=product_data.name,
-        description=product_data.description,
-        image_url=product_data.image_url,
-        physical_stock=product_data.stock_quantity,
-        reserved_stock=0,
-        price=product_data.price,
-        version=1
-    )
-    db.add(product)
-    await db.commit()
-    await db.refresh(product)
-    return build_product_response(product)
+    try:
+        sku = generate_sku()
+        product = Product(
+            sku=sku,
+            name=product_data.name,
+            description=product_data.description,
+            image_url=product_data.image_url,
+            physical_stock=product_data.stock_quantity,
+            reserved_stock=0,
+            price=product_data.price,
+            version=1
+        )
+        db.add(product)
+        await db.commit()
+        await db.refresh(product)
+        logger.info(f"Product {sku} created successfully")
+        return build_product_response(product)
+    except Exception as e:
+        logger.error(f"Error creating product: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.patch("/products/{product_id}", response_model=AdminProductResponse)
@@ -156,28 +164,35 @@ async def update_product(
     current_user: MockUser = Depends(get_current_active_admin)
 ):
     """Update product details or adjust stock levels."""
-    result = await db.execute(select(Product).filter(Product.id == product_id))
-    product = result.scalar_one_or_none()
+    try:
+        result = await db.execute(select(Product).filter(Product.id == product_id))
+        product = result.scalar_one_or_none()
 
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
 
-    if product_data.name is not None:
-        product.name = product_data.name
-    if product_data.description is not None:
-        product.description = product_data.description
-    if product_data.image_url is not None:
-        product.image_url = product_data.image_url
-    if product_data.price is not None:
-        product.price = product_data.price
-    if product_data.stock_quantity is not None:
-        product.physical_stock = product_data.stock_quantity
+        if product_data.name is not None:
+            product.name = product_data.name
+        if product_data.description is not None:
+            product.description = product_data.description
+        if product_data.image_url is not None:
+            product.image_url = product_data.image_url
+        if product_data.price is not None:
+            product.price = product_data.price
+        if product_data.stock_quantity is not None:
+            product.physical_stock = product_data.stock_quantity
 
-    product.version += 1
+        product.version += 1
 
-    await db.commit()
-    await db.refresh(product)
-    return build_product_response(product)
+        await db.commit()
+        await db.refresh(product)
+        logger.info(f"Product {product_id} updated successfully")
+        return build_product_response(product)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating product {product_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/orders", response_model=list[AdminOrderResponse])

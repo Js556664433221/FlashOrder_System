@@ -55,5 +55,6 @@ async def get_product(
         reserved_stock=product.reserved_stock,
         available_stock=product.physical_stock - product.reserved_stock,
         price=product.price,
-        description=product.description
+        description=product.description,
+        image_url=product.image_url
     )
