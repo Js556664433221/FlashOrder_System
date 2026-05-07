@@ -105,7 +105,7 @@ function ShopApp() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Payment
+            Activity History
           </button>
         </div>
       </nav>

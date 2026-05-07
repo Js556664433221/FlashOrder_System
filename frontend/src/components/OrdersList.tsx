@@ -289,10 +289,10 @@ function OrderCard({
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2 items-center">
-        {/* Pay Now - for staff with pending orders */}
+        {/* Upload Proof Payment - for staff with pending orders */}
         {canPay && !isAdmin && (
           <label className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 cursor-pointer">
-            {uploadingForOrder === order.id ? 'Uploading...' : 'Pay Now'}
+            {uploadingForOrder === order.id ? 'Uploading...' : 'Upload Proof Payment'}
             <input
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
