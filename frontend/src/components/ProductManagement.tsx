@@ -19,7 +19,7 @@ interface ProductForm {
   description: string;
   image_url: string;
   price: string;
-  stock_quantity: string;
+  physical_stock: string;
 }
 
 const initialForm: ProductForm = {
@@ -27,11 +27,11 @@ const initialForm: ProductForm = {
   description: '',
   image_url: '',
   price: '',
-  stock_quantity: '',
+  physical_stock: '',
 };
 
 export function ProductManagement() {
-  const { role } = useStore();
+  const { role, fetchProducts: refreshStoreProducts } = useStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -73,7 +73,7 @@ export function ProductManagement() {
       description: product.description || '',
       image_url: product.image_url || '',
       price: product.price.toString(),
-      stock_quantity: product.available_stock.toString(),
+      physical_stock: product.physical_stock.toString(),
     });
     setShowModal(true);
   };
@@ -93,7 +93,7 @@ export function ProductManagement() {
       description: form.description || null,
       image_url: form.image_url || null,
       price: parseFloat(form.price),
-      stock_quantity: parseInt(form.stock_quantity),
+      stock_quantity: parseInt(form.physical_stock),
     };
 
     try {
@@ -112,7 +112,15 @@ export function ProductManagement() {
       });
 
       if (res.ok) {
-        await loadProducts();
+        const savedProduct = await res.json();
+        // Update local state immediately
+        if (editingProduct) {
+          setProducts(products.map(p => p.id === savedProduct.id ? savedProduct : p));
+        } else {
+          setProducts([...products, savedProduct]);
+        }
+        // Also refresh the store for other components
+        refreshStoreProducts();
         handleClose();
       } else {
         const err = await res.json();
@@ -155,6 +163,8 @@ export function ProductManagement() {
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Product</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">SKU</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Price</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Physical</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Reserved</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Available</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Actions</th>
               </tr>
@@ -171,7 +181,7 @@ export function ProductManagement() {
                       />
                     ) : (
                       <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
-                        No img
+                        ?
                       </div>
                     )}
                   </td>
@@ -184,11 +194,17 @@ export function ProductManagement() {
                   <td className="px-4 py-3 text-sm text-gray-600">{product.sku}</td>
                   <td className="px-4 py-3 font-medium">${product.price.toFixed(2)}</td>
                   <td className="px-4 py-3">
+                    <span className="text-sm">{product.physical_stock}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-sm text-gray-500">{product.reserved_stock}</span>
+                  </td>
+                  <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-1 rounded text-sm ${
-                        product.available_stock <= 10
+                      className={`px-2 py-1 rounded text-sm font-medium ${
+                        product.available_stock <= 5
                           ? 'bg-red-100 text-red-700'
-                          : product.available_stock <= 20
+                          : product.available_stock <= 10
                           ? 'bg-yellow-100 text-yellow-700'
                           : 'bg-green-100 text-green-700'
                       }`}
@@ -275,13 +291,13 @@ export function ProductManagement() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {editingProduct ? 'New Stock Level *' : 'Initial Stock *'}
+                    {editingProduct ? 'Set Total Physical Stock *' : 'Initial Physical Stock *'}
                   </label>
                   <input
                     type="number"
-                    name="stock_quantity"
+                    name="physical_stock"
                     min="0"
-                    value={form.stock_quantity}
+                    value={form.physical_stock}
                     onChange={handleInputChange}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
