@@ -43,6 +43,12 @@ async def migrate():
         """)
         print("Added version column")
 
+        # Add image_url column
+        await conn.execute("""
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url VARCHAR;
+        """)
+        print("Added image_url column")
+
         # Migrate existing data
         await conn.execute("""
             UPDATE products SET physical_stock = stock_balance
@@ -54,6 +60,18 @@ async def migrate():
             UPDATE products SET reserved_stock = 0 WHERE reserved_stock IS NULL;
         """)
         print("Set reserved_stock to 0 for existing products")
+
+        # Update image URLs
+        image_urls = {
+            'SKU001': 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400',
+            'SKU002': 'https://images.unsplash.com/photo-1511467687858-23d96c32e4ae?w=400',
+            'SKU003': 'https://images.unsplash.com/photo-1625842268584-8f3296236761?w=400',
+            'SKU004': 'https://images.unsplash.com/photo-1587826080692-f439cd0b70da?w=400',
+            'SKU005': 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=400',
+        }
+        for sku, url in image_urls.items():
+            await conn.execute(f"UPDATE products SET image_url = '{url}' WHERE sku = '{sku}'")
+        print("Updated image URLs")
 
         print("Migration completed successfully!")
 

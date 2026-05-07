@@ -22,6 +22,7 @@ def build_order_response(order: Order) -> dict:
             items.append(OrderItemResponse(
                 product_id=item.product_id,
                 product_name=item.product.name if item.product else "Unknown",
+                product_image_url=item.product.image_url if item.product else None,
                 quantity=item.quantity,
                 unit_price=float(item.unit_price)
             ).model_dump())
@@ -113,6 +114,8 @@ async def create_order(
         total_price += item_price
         order_items_data.append({
             "product_id": product.id,
+            "product_name": product.name,
+            "product_image_url": product.image_url,
             "quantity": quantity,
             "unit_price": product.price
         })
@@ -145,7 +148,27 @@ async def create_order(
     )
     order_with_items = result.scalar_one()
 
-    return build_order_response(order_with_items)
+    # Build response with product details from database
+    items = [
+        OrderItemResponse(
+            product_id=item.product_id,
+            product_name=item.product.name if item.product else "Unknown",
+            product_image_url=item.product.image_url if item.product else None,
+            quantity=item.quantity,
+            unit_price=float(item.unit_price)
+        ).model_dump()
+        for item in order_with_items.items
+    ]
+
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "total_price": float(order.total_price),
+        "status": order.status,
+        "user_id": order.user_id,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "items": items
+    }
 
 
 @router.post("/{order_id}/request-cancel")
