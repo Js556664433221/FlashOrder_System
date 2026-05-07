@@ -1,202 +1,145 @@
-# FlashOrder Portal Documentation
+# FlashOrder Portal
 
-## Project Overview
+A lightweight, mobile-responsive e-commerce portal with role-based access control for managing stock, orders, payments, and admin operations.
 
-FlashOrder Portal is a lightweight, mobile-responsive web portal for frontline sales and counter staff to manage stock inquiries, place orders, and upload payment proofs in real-time.
+## Features
+
+- **Role-Based Access Control**: Staff and Admin roles with different permissions
+- **Real-time Stock Management**: Physical, reserved, and available stock tracking
+- **Order Management**: Place orders, request cancellations, upload payment proofs
+- **Admin Dashboard**: View statistics, low stock alerts, manage products
+- **Payment Workflow**: Upload receipts, confirm payments, verify transactions
+- **Product Catalog**: Images, search, add/edit/restock products
 
 ## Technology Stack
 
-- **Frontend:** Vite + TypeScript + React + Tailwind CSS
-- **Backend:** Python FastAPI (Async)
-- **Database:** PostgreSQL with asyncpg driver
-- **ORM:** SQLAlchemy 2.0 (Async)
+- **Frontend**: Vite + React + TypeScript + Tailwind CSS
+- **Backend**: Python FastAPI (async)
+- **Database**: PostgreSQL with asyncpg driver
+- **ORM**: SQLAlchemy 2.0 (async)
 
-## Project Structure
+## Quick Start
 
-```
-cart system/
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Cart.tsx
-│   │   │   ├── PaymentUpload.tsx
-│   │   │   └── ProductList.tsx
-│   │   ├── api.ts
-│   │   ├── App.tsx
-│   │   ├── store.ts
-│   │   ├── types.ts
-│   │   ├── index.css
-│   │   └── main.tsx
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.ts
-├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── database.py
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   └── models.py
-│   │   ├── routers/
-│   │   │   ├── orders.py
-│   │   │   ├── payments.py
-│   │   │   └── products.py
-│   │   └── schemas/
-│   │       └── __init__.py
-│   ├── uploads/
-│   ├── init_db.sql
-│   └── requirements.txt
+### Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+python run_migration.py    # Run database migrations
+python run_server.py       # Starts on port 8002
 ```
 
-## Getting Started
+### Frontend
 
-### Prerequisites
+```bash
+cd frontend
+npm install
+npm run dev              # Starts on port 5173
+```
 
-- Node.js 18+
-- Python 3.9+
-- PostgreSQL 14+
+### Access
 
-### Backend Setup
+Open http://localhost:5173 in your browser.
 
-1. Navigate to backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Create and activate virtual environment:
-   ```bash
-   python -m venv venv
-   .\venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Set the database URL environment variable:
-   ```bash
-   export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/flashorder
-   ```
-   Or on Windows:
-   ```bash
-   set DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/flashorder
-   ```
-
-5. Initialize the database:
-   ```bash
-   python init_db.py
-   ```
-
-6. Start the server:
-   ```bash
-   uvicorn app.main:app --reload --port 8001
-   ```
-
-### Frontend Setup
-
-1. Navigate to frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the dev server:
-   ```bash
-   npm run dev
-   ```
-
-## API Documentation
-
-Interactive API documentation is available via Swagger UI when the server is running:
-
-- **Swagger UI:** http://localhost:8001/docs
-- **ReDoc:** http://localhost:8001/redoc
-
-You can test all API endpoints directly from the Swagger UI interface.
+- **Default role**: Staff (can view products, place orders, upload payments)
+- **Switch to Admin**: Click "Switch to Admin" button in header
 
 ## API Endpoints
 
-### Root
-- `GET /` - Returns welcome message
+### Products (Staff)
+- `GET /products/` - List products (with optional `?search=` filter)
+- `GET /products/{id}` - Get single product
 
-### Health Check
-- `GET /health` - Returns server health status
-
-### Products
-- `GET /products/` - List all products
-  - Query params: `search` (optional) - Filter by SKU or name
-- `GET /products/{product_id}` - Get a single product
-
-### Orders
-- `GET /orders/` - List all orders
-- `GET /orders/{order_id}` - Get a single order
-- `POST /orders/` - Create a new order
-  - Body: `{ "items": [{ "product_id": 1, "quantity": 2 }] }`
+### Orders (Staff)
+- `GET /orders/` - List user's orders
+- `POST /orders/` - Create order
+- `POST /orders/{id}/request-cancel` - Request cancellation
 
 ### Payments
 - `POST /payments/{order_id}/upload` - Upload payment receipt
-  - Body: multipart/form-data with `file` field
-  - Accepted file types: JPG, PNG, PDF
+- `GET /payments/` - List payment history with order items
+
+### Admin Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/admin/products` | GET | List all products |
+| `/admin/products` | POST | Create new product |
+| `/admin/products/{id}` | PATCH | Update/restock product |
+| `/admin/orders` | GET | List all orders |
+| `/admin/orders/{id}/confirm-payment` | POST | Confirm payment, deduct stock |
+| `/admin/orders/{id}/cancel` | POST | Force cancel order |
+| `/admin/orders/{id}/approve-cancel` | POST | Approve cancellation |
+| `/admin/inventory/restock` | POST | Add stock to product |
+| `/admin/dashboard/summary` | GET | Dashboard statistics |
+
+### Authentication
+
+Uses `X-Simulated-Role` header (dev mode):
+- `X-Simulated-Role: staff` - Staff access
+- `X-Simulated-Role: admin` - Admin access
 
 ## Database Schema
 
 ### Products
-| Column        | Type    | Description           |
-|--------------|---------|----------------------|
-| id           | INTEGER | Primary key          |
-| sku          | VARCHAR | Unique product SKU   |
-| name         | VARCHAR | Product name         |
-| stock_balance| INTEGER | Available stock      |
-| price        | FLOAT   | Product price         |
-| version      | INTEGER | Optimistic lock version |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key |
+| sku | VARCHAR | Unique SKU |
+| name | VARCHAR | Product name |
+| description | VARCHAR | Optional description |
+| image_url | VARCHAR | Product image URL |
+| physical_stock | INTEGER | Total physical stock |
+| reserved_stock | INTEGER | Reserved stock |
+| price | FLOAT | Unit price |
+| version | INTEGER | Optimistic lock |
 
 ### Orders
-| Column       | Type    | Description                    |
-|-------------|---------|-------------------------------|
-| id          | INTEGER | Primary key                   |
-| order_number| VARCHAR | Unique order identifier        |
-| total_price | FLOAT   | Order total                   |
-| status      | VARCHAR | Order status                  |
-| created_at  | TIMESTAMP | Creation timestamp          |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key |
+| order_number | VARCHAR | Unique order ID |
+| total_price | FLOAT | Order total |
+| status | VARCHAR | Order status |
+| user_id | INTEGER | Ordering user |
+| created_at | TIMESTAMP | Creation time |
 
 ### Order Items
-| Column     | Type    | Description           |
-|-----------|---------|----------------------|
-| id        | INTEGER | Primary key          |
-| order_id  | INTEGER | Foreign key to orders |
-| product_id| INTEGER | Foreign key to products|
-| quantity  | INTEGER | Item quantity        |
-| unit_price| FLOAT   | Price at time of order|
+| Column | Type | Description |
+|--------|------|-------------|
+| product_id | INTEGER | FK to products |
+| product_name | VARCHAR | Product name at order time |
+| product_image_url | VARCHAR | Image URL at order time |
+| quantity | INTEGER | Quantity ordered |
+| unit_price | FLOAT | Price at order time |
 
 ### Payments
-| Column      | Type    | Description           |
-|------------|---------|----------------------|
-| id         | INTEGER | Primary key          |
-| order_id   | INTEGER | Foreign key to orders |
-| receipt_url| VARCHAR | Path to uploaded file |
-| uploaded_at| TIMESTAMP | Upload timestamp   |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key |
+| order_id | INTEGER | FK to orders |
+| receipt_url | VARCHAR | Uploaded file path |
+| uploaded_at | TIMESTAMP | Upload time |
 
 ## Order Status Flow
 
-1. `Pending Payment` - Initial status when order is created
-2. `Payment Under Review` - After payment receipt is uploaded
-3. `Paid` - After payment is confirmed
-4. `Cancelled` - If order is cancelled
+```
+Pending Payment → Payment Under Review → Paid
+     ↓                 ↓
+  Cancelled ← Cancel Requested → Cancelled (after approval)
+```
 
-## Environment Variables
+## Development
 
-| Variable      | Default                                        | Description           |
-|--------------|-----------------------------------------------|----------------------|
-| DATABASE_URL | postgresql+asyncpg://postgres:postgres@localhost:5432/flashorder | PostgreSQL connection string |
+### Running Migrations
 
-## Development Notes
+```bash
+python run_migration.py    # Adds missing columns
+python fix_stock_balance.py  # Removes legacy stock_balance column
+```
 
-- The backend uses async SQLAlchemy with `asyncpg` driver for non-blocking database operations
-- All file uploads are stored in the `backend/uploads/` directory
-- Uploaded files are served statically at `/uploads/{filename}`
-- Stock is atomically deducted when an order is placed to prevent overselling
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| DATABASE_URL | postgresql+asyncpg://postgres:postgres@localhost:5432/flashorder | PostgreSQL connection |
