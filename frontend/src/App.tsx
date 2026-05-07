@@ -8,16 +8,28 @@ function ShopApp() {
   const [activeTab, setActiveTab] = useState<Tab>('stock');
   const { fetchProducts, fetchOrders, cart, user, role, setRole } = useStore();
 
+  const isAdmin = role === 'admin';
+
+  // Refresh data when role changes
   useEffect(() => {
     fetchProducts();
     fetchOrders();
-  }, []);
+  }, [role]);
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const isAdmin = role === 'admin';
 
-  const toggleRole = () => {
-    setRole(isAdmin ? 'staff' : 'admin');
+  const handleSwitchToAdmin = () => {
+    setRole('admin');
+    // Scroll to admin section after state updates
+    setTimeout(() => {
+      document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleSwitchToStaff = () => {
+    setRole('staff');
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -29,24 +41,21 @@ function ShopApp() {
             <p className="text-sm opacity-75">Welcome, {user.username} ({user.role})</p>
           </div>
           <div className="flex gap-3">
-            {isAdmin && (
-              <a
-                href="#admin"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
-                }}
+            {isAdmin ? (
+              <button
+                onClick={handleSwitchToStaff}
+                className="bg-white text-purple-600 px-4 py-2 rounded text-sm font-bold hover:bg-gray-100"
+              >
+                Switch to Staff
+              </button>
+            ) : (
+              <button
+                onClick={handleSwitchToAdmin}
                 className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded text-sm font-bold"
               >
-                Admin Panel
-              </a>
+                Switch to Admin
+              </button>
             )}
-            <button
-              onClick={toggleRole}
-              className="bg-white text-purple-600 px-4 py-2 rounded text-sm font-bold hover:bg-gray-100"
-            >
-              Switch to {isAdmin ? 'Staff' : 'Admin'}
-            </button>
           </div>
         </div>
       </header>
