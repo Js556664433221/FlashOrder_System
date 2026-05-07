@@ -1,35 +1,24 @@
 import { useEffect, useState } from 'react';
-import { ProductList, Cart, PaymentUpload, Login, AdminDashboard, AdminNavBar, OrdersList } from './components';
+import { ProductList, Cart, PaymentUpload, AdminDashboard, AdminNavBar, OrdersList } from './components';
 import { useStore } from './store';
 
 type Tab = 'stock' | 'cart' | 'payment' | 'orders';
 
 function ShopApp() {
   const [activeTab, setActiveTab] = useState<Tab>('stock');
-  const { fetchProducts, fetchOrders, cart, user, role, isAuthenticated } = useStore();
+  const { fetchProducts, fetchOrders, cart, user, role, setRole } = useStore();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchProducts();
-      fetchOrders();
-    }
-  }, [isAuthenticated]);
+    fetchProducts();
+    fetchOrders();
+  }, []);
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const isAdmin = role === 'admin';
 
-  const handleLoginSuccess = () => {
-    fetchProducts();
-    fetchOrders();
+  const toggleRole = () => {
+    setRole(isAdmin ? 'staff' : 'admin');
   };
-
-  const handleLogout = () => {
-    useStore.getState().setUser(null, null);
-  };
-
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -37,7 +26,7 @@ function ShopApp() {
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">FlashOrder Portal</h1>
-            <p className="text-sm opacity-75">Welcome, {user?.username} ({user?.role})</p>
+            <p className="text-sm opacity-75">Welcome, {user.username} ({user.role})</p>
           </div>
           <div className="flex gap-3">
             {isAdmin && (
@@ -49,14 +38,14 @@ function ShopApp() {
                 }}
                 className="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded text-sm font-bold"
               >
-                Admin Panel / 管理中心
+                Admin Panel
               </a>
             )}
             <button
-              onClick={handleLogout}
+              onClick={toggleRole}
               className="bg-white text-purple-600 px-4 py-2 rounded text-sm font-bold hover:bg-gray-100"
             >
-              Logout
+              Switch to {isAdmin ? 'Staff' : 'Admin'}
             </button>
           </div>
         </div>

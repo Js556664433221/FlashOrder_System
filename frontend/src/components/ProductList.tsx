@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useStore } from '../store';
 import type { Product } from '../types';
 
 export function ProductList() {
-  const { products, isLoading, error, searchQuery, setSearchQuery, fetchProducts, addToCart } = useStore();
+  const { products, isLoading, error, searchQuery, setSearchQuery, fetchProducts } = useStore();
 
   return (
     <div className="p-4">
@@ -28,7 +29,7 @@ export function ProductList() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} onAdd={() => addToCart(product)} />
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}
@@ -36,7 +37,30 @@ export function ProductList() {
   );
 }
 
-function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }) {
+function ProductCard({ product }: { product: Product }) {
+  const { addToCart, fetchProducts } = useStore();
+  const [quantity, setQuantity] = useState(1);
+
+  const availableStock = product.available_stock ?? (product.physical_stock - product.reserved_stock);
+  const maxQuantity = Math.max(1, availableStock);
+
+  const handleAdd = async () => {
+    if (quantity > 0 && quantity <= maxQuantity) {
+      for (let i = 0; i < quantity; i++) {
+        addToCart(product);
+      }
+      setQuantity(1);
+      // Refresh products to show updated stock after adding to cart
+      fetchProducts();
+    }
+  };
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value) || 1;
+    const clamped = Math.max(1, Math.min(val, maxQuantity));
+    setQuantity(clamped);
+  };
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-2">
@@ -46,20 +70,31 @@ function ProductCard({ product, onAdd }: { product: Product; onAdd: () => void }
         </div>
         <span className="text-purple-600 font-bold">${product.price.toFixed(2)}</span>
       </div>
+      <p className="text-sm text-gray-500 mb-3">{product.description || 'No description'}</p>
       <div className="flex justify-between items-center mt-4">
         <div>
           <span className="text-sm text-gray-500">Stock:</span>
-          <span className={`ml-1 font-medium ${product.stock_balance > 0 ? 'text-green-600' : 'text-red-500'}`}>
-            {product.stock_balance}
+          <span className={`ml-1 font-medium ${availableStock > 0 ? 'text-green-600' : 'text-red-500'}`}>
+            {availableStock}
           </span>
         </div>
-        <button
-          onClick={onAdd}
-          disabled={product.stock_balance <= 0}
-          className="px-3 py-1 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Add to Cart
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={maxQuantity}
+            value={quantity}
+            onChange={handleQuantityChange}
+            className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={availableStock <= 0}
+            className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Add
+          </button>
+        </div>
       </div>
     </div>
   );
