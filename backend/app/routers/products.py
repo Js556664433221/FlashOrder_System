@@ -6,6 +6,8 @@ from typing import Optional
 from ..database import get_db
 from ..models import Product
 from ..schemas import ProductStockResponse
+from ..auth import get_current_active_user
+from ..models import User
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -13,7 +15,8 @@ router = APIRouter(prefix="/products", tags=["products"])
 @router.get("/", response_model=list[ProductStockResponse])
 async def list_products(
     search: Optional[str] = Query(None, description="Search by SKU or name"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     query = select(Product)
     if search:
@@ -36,7 +39,11 @@ async def list_products(
 
 
 @router.get("/{product_id}", response_model=ProductStockResponse)
-async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
+async def get_product(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     result = await db.execute(select(Product).filter(Product.id == product_id))
     product = result.scalar_one_or_none()
     if not product:

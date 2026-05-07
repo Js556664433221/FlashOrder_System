@@ -81,3 +81,49 @@ class StockReservationService:
         )
         await db.flush()
         return result.rowcount > 0
+
+    @staticmethod
+    async def restock(
+        db: AsyncSession,
+        product_id: int,
+        quantity: int
+    ) -> bool:
+        """
+        Atomically increment physical_stock for restocking.
+
+        Uses conditional UPDATE to only increment physical_stock if quantity > 0.
+        """
+        if quantity <= 0:
+            return False
+
+        result = await db.execute(
+            text("""
+                UPDATE products
+                SET physical_stock = physical_stock + :qty,
+                    version = version + 1
+                WHERE id = :product_id
+            """),
+            {"product_id": product_id, "qty": quantity}
+        )
+        await db.flush()
+        return result.rowcount > 0
+
+    @staticmethod
+    async def release_order_stock(
+        db: AsyncSession,
+        order_items: list
+    ) -> list:
+        """
+        Release stock for all items in an order.
+        Used when cancelling an order to return reserved items to available inventory.
+
+        Returns list of failed product_ids if any releases failed.
+        """
+        failed_products = []
+        for item in order_items:
+            success = await StockReservationService.release_stock(
+                db, item.product_id, item.quantity
+            )
+            if not success:
+                failed_products.append(item.product_id)
+        return failed_products

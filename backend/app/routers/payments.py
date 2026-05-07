@@ -1,24 +1,52 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from datetime import datetime
 import os
 import uuid
 
 from ..database import get_db
-from ..models import Order, OrderStatusEnum, Payment
+from ..models import Order, OrderStatusEnum, Payment, User
 from ..schemas import PaymentResponse
+from ..auth import get_current_active_user
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "uploads")
 
 
-@router.post("/{order_id}/upload", response_model=PaymentResponse)
+@router.get("/", response_model=list[PaymentResponse])
+async def list_payments(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """List all payments with order details."""
+    result = await db.execute(
+        select(Payment)
+        .options(joinedload(Payment.order))
+        .order_by(Payment.uploaded_at.desc())
+    )
+    payments = result.scalars().unique().all()
+
+    return [
+        PaymentResponse(
+            id=p.id,
+            order_id=p.order_id,
+            order_number=p.order.order_number if p.order else None,
+            receipt_url=p.receipt_url,
+            uploaded_at=p.uploaded_at
+        )
+        for p in payments
+    ]
+
+
+@router.post("/{order_id}/upload")
 async def upload_receipt(
     order_id: int,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     if file.content_type not in ["image/jpeg", "image/png", "application/pdf"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and PDF are allowed")

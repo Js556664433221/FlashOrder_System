@@ -1,5 +1,16 @@
 -- FlashOrder Portal Database Schema
 
+-- Users table (for RBAC)
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR UNIQUE NOT NULL,
+    email VARCHAR UNIQUE NOT NULL,
+    hashed_password VARCHAR NOT NULL,
+    role VARCHAR NOT NULL DEFAULT 'staff',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Products table
 CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
@@ -12,13 +23,14 @@ CREATE TABLE IF NOT EXISTS products (
     version INTEGER NOT NULL DEFAULT 1
 );
 
--- Orders table
+-- Orders table (with user_id for multi-tenant)
 CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,
     order_number VARCHAR UNIQUE NOT NULL,
     total_price FLOAT NOT NULL,
     status VARCHAR NOT NULL DEFAULT 'Pending Payment',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    user_id INTEGER NOT NULL REFERENCES users(id)
 );
 
 -- Order items table

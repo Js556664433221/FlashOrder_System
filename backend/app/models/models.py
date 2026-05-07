@@ -8,10 +8,28 @@ import uuid
 from ..database import Base
 
 
+class UserRole(str, enum.Enum):
+    STAFF = "staff"
+    ADMIN = "admin"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String(20), nullable=False, default=UserRole.STAFF.value)
+    is_active = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class OrderStatusEnum(str, enum.Enum):
     PENDING_PAYMENT = "Pending Payment"
     PAYMENT_UNDER_REVIEW = "Payment Under Review"
     PAID = "Paid"
+    CANCEL_REQUESTED = "Cancel Requested"
     CANCELLED = "Cancelled"
 
 
@@ -46,9 +64,11 @@ class Order(Base):
     total_price = Column(Float, nullable=False)
     status = Column(String(50), default=OrderStatusEnum.PENDING_PAYMENT.value, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="order", cascade="all, delete-orphan")
+    owner = relationship("User")
 
 
 class OrderItem(Base):
