@@ -4,3 +4,4 @@ export { PaymentUpload } from './PaymentUpload';
 export { AdminDashboard } from './AdminDashboard';
 export { AdminNavBar } from './AdminNavBar';
 export { OrdersList } from './OrdersList';
+export { ProductManagement } from './ProductManagement';

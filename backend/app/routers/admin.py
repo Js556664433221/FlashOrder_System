@@ -97,6 +97,33 @@ def build_admin_order_response(order: Order) -> AdminOrderResponse:
     )
 
 
+def build_product_response(product: Product) -> AdminProductResponse:
+    """Build product response with stock details."""
+    return AdminProductResponse(
+        id=product.id,
+        sku=product.sku,
+        name=product.name,
+        description=product.description,
+        image_url=product.image_url,
+        physical_stock=product.physical_stock,
+        reserved_stock=product.reserved_stock,
+        available_stock=product.physical_stock - product.reserved_stock,
+        price=float(product.price),
+        version=product.version
+    )
+
+
+@router.get("/products", response_model=list[AdminProductResponse])
+async def list_products(
+    db: AsyncSession = Depends(get_db),
+    current_user: MockUser = Depends(get_current_active_admin)
+):
+    """List all products with stock details."""
+    result = await db.execute(select(Product).order_by(Product.name))
+    products = result.scalars().all()
+    return [build_product_response(p) for p in products]
+
+
 @router.post("/products", response_model=AdminProductResponse)
 async def create_product(
     product_data: AdminProductCreate,
@@ -109,6 +136,7 @@ async def create_product(
         sku=sku,
         name=product_data.name,
         description=product_data.description,
+        image_url=product_data.image_url,
         physical_stock=product_data.stock_quantity,
         reserved_stock=0,
         price=product_data.price,
@@ -117,7 +145,7 @@ async def create_product(
     db.add(product)
     await db.commit()
     await db.refresh(product)
-    return product
+    return build_product_response(product)
 
 
 @router.patch("/products/{product_id}", response_model=AdminProductResponse)
@@ -138,6 +166,8 @@ async def update_product(
         product.name = product_data.name
     if product_data.description is not None:
         product.description = product_data.description
+    if product_data.image_url is not None:
+        product.image_url = product_data.image_url
     if product_data.price is not None:
         product.price = product_data.price
     if product_data.stock_quantity is not None:
@@ -147,7 +177,7 @@ async def update_product(
 
     await db.commit()
     await db.refresh(product)
-    return product
+    return build_product_response(product)
 
 
 @router.get("/orders", response_model=list[AdminOrderResponse])

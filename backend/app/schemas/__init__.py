@@ -70,6 +70,7 @@ class AdminProductCreate(BaseModel):
 class AdminProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    image_url: Optional[str] = None
     price: Optional[float] = None
     stock_quantity: Optional[int] = None
 
@@ -79,7 +80,10 @@ class AdminProductResponse(BaseModel):
     sku: str
     name: str
     description: Optional[str] = None
-    stock_balance: int
+    image_url: Optional[str] = None
+    physical_stock: int
+    reserved_stock: int
+    available_stock: int
     price: float
     version: int
 

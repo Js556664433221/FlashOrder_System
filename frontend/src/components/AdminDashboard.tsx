@@ -1,8 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
+import { ProductManagement } from './ProductManagement';
+
+type AdminTab = 'dashboard' | 'products';
 
 export function AdminDashboard() {
   const { adminDashboard, fetchDashboard, user } = useStore();
+  const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
 
   useEffect(() => {
     fetchDashboard();
@@ -18,8 +22,44 @@ export function AdminDashboard() {
 
   return (
     <div className="p-6">
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`px-4 py-2 font-medium ${
+            activeTab === 'dashboard'
+              ? 'text-purple-600 border-b-2 border-purple-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Dashboard
+        </button>
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`px-4 py-2 font-medium ${
+            activeTab === 'products'
+              ? 'text-purple-600 border-b-2 border-purple-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Manage Products
+        </button>
+      </div>
+
+      {activeTab === 'dashboard' ? (
+        <DashboardView adminDashboard={adminDashboard} user={user} />
+      ) : (
+        <ProductManagement />
+      )}
+    </div>
+  );
+}
+
+function DashboardView({ adminDashboard, user }: { adminDashboard: any; user: any }) {
+  return (
+    <>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Admin Dashboard / 管理中心</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
         <span className="text-sm text-gray-500">Logged in as: {user?.username} ({user?.role})</span>
       </div>
 
@@ -45,7 +85,9 @@ export function AdminDashboard() {
 
       {/* Low Stock Alerts */}
       <div className="bg-red-50 p-4 rounded-lg border border-red-200 mb-8">
-        <h3 className="text-lg font-semibold text-red-700 mb-3">Low Stock Alerts (阈值: {adminDashboard.low_stock_alerts[0]?.threshold || 10})</h3>
+        <h3 className="text-lg font-semibold text-red-700 mb-3">
+          Low Stock Alerts (Threshold: {adminDashboard.low_stock_alerts[0]?.threshold || 10})
+        </h3>
         {adminDashboard.low_stock_alerts.length === 0 ? (
           <p className="text-gray-600">No low stock products.</p>
         ) : (
@@ -62,7 +104,7 @@ export function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {adminDashboard.low_stock_alerts.map((product) => (
+                {adminDashboard.low_stock_alerts.map((product: any) => (
                   <tr key={product.id} className="border-b border-red-100">
                     <td className="py-2">{product.id}</td>
                     <td className="py-2">{product.sku}</td>
@@ -94,6 +136,6 @@ export function AdminDashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
