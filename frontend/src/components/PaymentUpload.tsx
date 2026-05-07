@@ -125,7 +125,7 @@ export function PaymentUpload() {
                         />
                       ) : (
                         <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
-                          No img
+                          ?
                         </div>
                       )}
                       <span className="flex-1 font-medium">{item.product_name}</span>

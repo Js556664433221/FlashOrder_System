@@ -269,12 +269,14 @@ function OrderCard({
         <ul className="space-y-1">
           {order.items.map((item, idx) => (
             <li key={idx} className="flex items-center gap-2 text-sm">
-              {item.product_image_url && (
+              {item.product_image_url ? (
                 <img
                   src={item.product_image_url}
                   alt={item.product_name}
                   className="w-8 h-8 object-cover rounded"
                 />
+              ) : (
+                <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">?</div>
               )}
               <span className="flex-1">{item.product_name}</span>
               <span className="text-gray-500">x{item.quantity}</span>
