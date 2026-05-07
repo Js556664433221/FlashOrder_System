@@ -7,6 +7,7 @@ export interface Product {
   available_stock: number;
   price: number;
   description?: string;
+  image_url?: string;
 }
 
 export type UserRole = 'staff' | 'admin';
@@ -20,6 +21,7 @@ export interface User {
 export interface OrderItem {
   product_id: number;
   product_name: string;
+  product_image_url?: string;
   quantity: number;
   unit_price: number;
 }

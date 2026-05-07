@@ -5,6 +5,7 @@ import { api } from '../api';
 interface OrderItem {
   product_id: number;
   product_name: string;
+  product_image_url?: string;
   quantity: number;
   unit_price: number;
 }
@@ -184,12 +185,22 @@ export function OrdersList() {
                 {/* Order Items List */}
                 {order.items && order.items.length > 0 && (
                   <div className="mb-3 p-2 bg-gray-50 rounded text-sm">
-                    <div className="font-medium text-gray-700 mb-1">Items:</div>
-                    <ul className="space-y-1">
+                    <div className="font-medium text-gray-700 mb-2">Items:</div>
+                    <ul className="space-y-2">
                       {order.items.map((item, idx) => (
-                        <li key={idx} className="flex justify-between">
-                          <span>{item.product_name} x{item.quantity}</span>
-                          <span className="text-gray-600">@ ${item.unit_price.toFixed(2)} = ${(item.quantity * item.unit_price).toFixed(2)}</span>
+                        <li key={idx} className="flex items-center gap-3">
+                          {item.product_image_url && (
+                            <img
+                              src={item.product_image_url}
+                              alt={item.product_name}
+                              className="w-10 h-10 object-cover rounded"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <span className="font-medium">{item.product_name}</span>
+                            <span className="text-gray-500 ml-2">x{item.quantity}</span>
+                          </div>
+                          <span className="text-gray-600">${(item.quantity * item.unit_price).toFixed(2)}</span>
                         </li>
                       ))}
                     </ul>

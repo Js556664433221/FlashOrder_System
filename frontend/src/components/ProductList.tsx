@@ -50,7 +50,6 @@ function ProductCard({ product }: { product: Product }) {
         addToCart(product);
       }
       setQuantity(1);
-      // Refresh products to show updated stock after adding to cart
       fetchProducts();
     }
   };
@@ -62,38 +61,49 @@ function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <span className="text-sm text-gray-500">{product.sku}</span>
-          <h3 className="font-semibold text-lg">{product.name}</h3>
-        </div>
-        <span className="text-purple-600 font-bold">${product.price.toFixed(2)}</span>
-      </div>
-      <p className="text-sm text-gray-500 mb-3">{product.description || 'No description'}</p>
-      <div className="flex justify-between items-center mt-4">
-        <div>
-          <span className="text-sm text-gray-500">Stock:</span>
-          <span className={`ml-1 font-medium ${availableStock > 0 ? 'text-green-600' : 'text-red-500'}`}>
-            {availableStock}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={1}
-            max={maxQuantity}
-            value={quantity}
-            onChange={handleQuantityChange}
-            className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
+    <div className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+      {product.image_url && (
+        <div className="h-40 bg-gray-100 overflow-hidden">
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="w-full h-full object-cover"
           />
-          <button
-            onClick={handleAdd}
-            disabled={availableStock <= 0}
-            className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            Add
-          </button>
+        </div>
+      )}
+      <div className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <span className="text-sm text-gray-500">{product.sku}</span>
+            <h3 className="font-semibold text-lg">{product.name}</h3>
+          </div>
+          <span className="text-purple-600 font-bold">${product.price.toFixed(2)}</span>
+        </div>
+        <p className="text-sm text-gray-500 mb-3">{product.description || 'No description'}</p>
+        <div className="flex justify-between items-center mt-4">
+          <div>
+            <span className="text-sm text-gray-500">Stock:</span>
+            <span className={`ml-1 font-medium ${availableStock > 0 ? 'text-green-600' : 'text-red-500'}`}>
+              {availableStock}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={maxQuantity}
+              value={quantity}
+              onChange={handleQuantityChange}
+              className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
+            />
+            <button
+              onClick={handleAdd}
+              disabled={availableStock <= 0}
+              className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Add
+            </button>
+          </div>
         </div>
       </div>
     </div>

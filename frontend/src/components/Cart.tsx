@@ -41,7 +41,14 @@ export function Cart() {
         <>
           <div className="space-y-3 mb-4">
             {cart.map((item) => (
-              <div key={item.product.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <div key={item.product.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                {item.product.image_url && (
+                  <img
+                    src={item.product.image_url}
+                    alt={item.product.name}
+                    className="w-16 h-16 object-cover rounded"
+                  />
+                )}
                 <div className="flex-1">
                   <div className="font-medium">{item.product.name}</div>
                   <div className="text-sm text-gray-500">
