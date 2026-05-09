@@ -57,13 +57,25 @@ export function ProductList() {
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
+      // Smooth scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setCurrentPage(currentPage - 1);
     }
   };
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
+      // Smooth scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePageClick = (page: number) => {
+    if (page !== currentPage) {
+      // Smooth scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setCurrentPage(page);
     }
   };
 
@@ -243,7 +255,7 @@ export function ProductList() {
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => handlePageClick(page)}
                     className={`w-10 h-10 rounded-xl font-semibold transition-all ${
                       page === currentPage
                         ? 'bg-primary-600 text-white shadow-md'
