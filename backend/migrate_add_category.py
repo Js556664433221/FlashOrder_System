@@ -6,18 +6,18 @@ import asyncio
 import sys
 import os
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from sqlalchemy import text
-from database import AsyncSessionLocal, engine
+from app.database import AsyncSessionLocal, engine
 
 
 async def migrate():
     async with engine.begin() as conn:
-        # Check if column already exists
-        result = await conn.execute(text("PRAGMA table_info(products)"))
-        columns = [row[1] for row in result.fetchall()]
+        # Check if column already exists using PostgreSQL system catalog
+        result = await conn.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'products' AND column_name = 'category'
+        """))
+        columns = [row[0] for row in result.fetchall()]
 
         if 'category' not in columns:
             print("Adding 'category' column to products table...")
@@ -28,7 +28,7 @@ async def migrate():
         else:
             print("Column 'category' already exists.")
 
-        # Optionally seed some sample categories
+        # Seed some sample categories
         print("\nSeeding sample categories...")
         await conn.execute(text("""
             UPDATE products

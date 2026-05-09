@@ -1,6 +1,6 @@
 import type { Product, Order, Payment, AdminDashboard, CheckoutData, PromoValidationResult, CustomerProfile, CustomerProfileCreate } from './types';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8002';
 
 function authHeaders(role: 'admin' | 'salesman' | null): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
