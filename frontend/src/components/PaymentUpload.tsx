@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
+import { FileText, RefreshCw, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { LoadingSpinner, FadeInContent } from './LoadingSpinner';
+
+const API_BASE = 'http://localhost:8000';
 
 interface OrderItem {
   product_name: string;
@@ -32,7 +36,7 @@ export function PaymentUpload() {
   const loadActivity = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8002/payments/', {
+      const res = await fetch(`${API_BASE}/payments/`, {
         headers: { 'X-Simulated-Role': role || 'staff' },
       });
       if (res.ok) {
@@ -49,7 +53,7 @@ export function PaymentUpload() {
   const handleRequestCancel = async (orderId: number) => {
     if (!confirm('Request cancellation for this order?')) return;
     try {
-      await fetch(`http://localhost:8002/orders/${orderId}/request-cancel`, {
+      await fetch(`${API_BASE}/orders/${orderId}/request-cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Simulated-Role': role || 'staff' },
       });
@@ -61,110 +65,159 @@ export function PaymentUpload() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'payment under review':
-        return <span className="px-2 py-0.5 rounded text-xs bg-orange-200 text-orange-800">Under Review</span>;
-      case 'paid':
-      case 'verified':
-        return <span className="px-2 py-0.5 rounded text-xs bg-green-200 text-green-800">Verified</span>;
-      case 'cancelled':
-        return <span className="px-2 py-0.5 rounded text-xs bg-red-200 text-red-800">Cancelled</span>;
-      default:
-        return <span className="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-800">{status}</span>;
+    const statusLower = status.toLowerCase();
+    if (statusLower === 'payment under review') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-accent-amber/10 text-accent-amber border border-accent-amber/30">
+          <Clock className="w-3.5 h-3.5" />
+          Under Review
+        </span>
+      );
     }
+    if (statusLower === 'paid' || statusLower === 'verified') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-accent-green/10 text-accent-green border border-accent-green/30">
+          <CheckCircle className="w-3.5 h-3.5" />
+          Verified
+        </span>
+      );
+    }
+    if (statusLower === 'cancelled') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-dark-200 text-dark-600 border border-dark-300">
+          <XCircle className="w-3.5 h-3.5" />
+          Cancelled
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-dark-100 text-dark-600 border border-dark-200">
+        {status}
+      </span>
+    );
   };
 
   return (
-    <div className="p-4 border-t border-gray-200">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Activity History</h2>
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+            <FileText className="w-6 h-6 text-primary-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-dark-900">Activity History</h2>
+            <p className="text-dark-500">Track your payment uploads and status</p>
+          </div>
+        </div>
         <button
           onClick={loadActivity}
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-surface-50 border border-dark-200 rounded-xl hover:bg-surface-100 transition-colors"
         >
-          Refresh
+          <RefreshCw className={`w-4 h-4 text-primary-600 ${loading ? 'animate-spin' : ''}`} />
+          <span className="text-sm font-medium text-dark-700">Refresh</span>
         </button>
       </div>
 
       {loading ? (
-        <div className="text-center py-12">Loading...</div>
+        <FadeInContent
+          isLoading={true}
+          minHeight="min-h-[400px]"
+          loadingComponent={
+            <>
+              <LoadingSpinner size="lg" />
+              <p className="text-primary-600 text-lg mt-4 font-medium">Loading activity...</p>
+            </>
+          }
+        />
       ) : payments.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <p className="text-4xl mb-4">📋</p>
-          <p>No payment activity yet</p>
-          <p className="text-sm mt-2">Upload payment receipts from the Orders tab</p>
+        <div className="text-center py-20 bg-surface-100 rounded-2xl border border-dark-200">
+          <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-10 h-10 text-primary-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-dark-700 mb-2">No Activity Yet</h3>
+          <p className="text-dark-500">Payment activity will appear here after you place orders</p>
         </div>
       ) : (
         <div className="space-y-4">
           {payments.map((payment) => (
-            <div key={payment.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+            <div key={payment.id} className="bg-surface-50 rounded-2xl border-2 border-transparent hover:border-primary-500 overflow-hidden hover:shadow-lg hover:scale-[1.02] transition-all duration-300 ease-in-out">
               {/* Header */}
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <span className="font-semibold text-lg">{payment.order_number}</span>
-                  {getStatusBadge(payment.status)}
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">
-                    {new Date(payment.uploaded_at).toLocaleString()}
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-primary-600" />
+                    </div>
+                    <div>
+                      <span className="font-mono font-bold text-lg text-dark-900">{payment.order_number}</span>
+                      <div className="mt-1">{getStatusBadge(payment.status)}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-dark-500">
+                      {new Date(payment.uploaded_at).toLocaleString()}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Itemized List with Photos */}
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-2 text-sm">Items:</h4>
-                <ul className="space-y-2">
-                  {payment.order_items.map((item, idx) => (
-                    <li key={idx} className="flex items-center gap-3">
-                      {item.product_image_url ? (
-                        <img
-                          src={item.product_image_url}
-                          alt={item.product_name}
-                          className="w-10 h-10 object-cover rounded"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
-                          ?
-                        </div>
-                      )}
-                      <span className="flex-1 font-medium">{item.product_name}</span>
-                      <span className="text-gray-500">x{item.quantity}</span>
-                      <span className="text-gray-600">${(item.quantity * item.unit_price).toFixed(2)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Proof of Payment */}
-              <div className="mb-4">
-                <h4 className="font-medium text-gray-700 mb-2 text-sm">Proof of Payment:</h4>
-                <a
-                  href={`http://localhost:8002${payment.receipt_url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
-                  <img
-                    src={`http://localhost:8002${payment.receipt_url}`}
-                    alt="Payment Receipt"
-                    className="max-w-xs max-h-48 object-contain rounded border border-gray-200 hover:shadow-md cursor-pointer"
-                  />
-                  <span className="text-xs text-blue-600 hover:underline mt-1 block">View full receipt</span>
-                </a>
-              </div>
-
-              {/* Actions - Request Cancel for Under Review orders (Staff) */}
-              {!isAdmin && payment.status.toLowerCase() === 'payment under review' && (
-                <div className="border-t pt-3">
-                  <button
-                    onClick={() => handleRequestCancel(payment.order_id)}
-                    className="px-3 py-1.5 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
-                  >
-                    Request Cancel
-                  </button>
+                {/* Items */}
+                <div className="p-4 bg-surface-100 rounded-xl mb-4">
+                  <h4 className="text-sm font-semibold text-dark-600 mb-3">Order Items</h4>
+                  <div className="space-y-2">
+                    {payment.order_items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        {item.product_image_url ? (
+                          <img
+                            src={item.product_image_url}
+                            alt={item.product_name}
+                            className="w-10 h-10 object-cover rounded-lg"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-dark-200 rounded-lg flex items-center justify-center text-dark-400 text-xs">
+                            No img
+                          </div>
+                        )}
+                        <span className="flex-1 font-medium text-dark-800">{item.product_name}</span>
+                        <span className="text-dark-500">x{item.quantity}</span>
+                        <span className="font-semibold text-dark-800">RM {(item.quantity * item.unit_price).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
+
+                {/* Proof of Payment */}
+                {payment.receipt_url && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-semibold text-dark-600 mb-2">Payment Proof</h4>
+                    <a
+                      href={`${API_BASE}${payment.receipt_url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={`${API_BASE}${payment.receipt_url}`}
+                        alt="Payment Receipt"
+                        className="max-w-sm max-h-48 object-contain rounded-xl border border-dark-200 hover:shadow-lg transition-shadow cursor-pointer bg-white p-2"
+                      />
+                      <span className="text-sm text-primary-600 hover:underline mt-2 block">Click to view full size</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {!isAdmin && payment.status.toLowerCase() === 'payment under review' && (
+                  <div className="border-t border-dark-200 pt-4">
+                    <button
+                      onClick={() => handleRequestCancel(payment.order_id)}
+                      className="px-4 py-2 bg-dark-400 text-white text-sm font-semibold rounded-xl hover:bg-dark-500 transition-colors"
+                    >
+                      Request Cancellation
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
