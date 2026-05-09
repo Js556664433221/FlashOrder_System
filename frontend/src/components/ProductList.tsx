@@ -1,41 +1,177 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import type { Product } from '../types';
 import { formatCurrency } from '../utils';
-import { Search, Package, ShoppingBag, Check } from 'lucide-react';
+import { Search, Package, ShoppingBag, Check, ChevronLeft, ChevronRight, ChevronDown, Layers } from 'lucide-react';
 import { LoadingSpinner, FadeInContent } from './LoadingSpinner';
 
 export function ProductList() {
-  const { products, isLoading, error, searchQuery, setSearchQuery, fetchProducts } = useStore();
+  const {
+    products,
+    categories,
+    isLoading,
+    error,
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    fetchProducts,
+    fetchCategories,
+    currentPage,
+    totalPages,
+    setCurrentPage
+  } = useStore();
   const [addedItems, setAddedItems] = useState<number[]>([]);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Fetch products on mount and when page/category changes
+  useEffect(() => {
+    fetchProducts(currentPage);
+  }, [currentPage]);
+
+  // Refetch when category changes
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchProducts(1);
+  }, [selectedCategory]);
+
+  const handleSearch = () => {
+    setCurrentPage(1);
+    fetchProducts(1);
+  };
+
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setShowCategoryDropdown(false);
+  };
+
+  const handleClearCategory = () => {
+    setSelectedCategory('');
+    setShowCategoryDropdown(false);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   return (
     <div className="p-6">
-      {/* Hero Search Bar */}
+      {/* Hero Search Bar with Category */}
       <div className="mb-8">
-        <div className="relative max-w-2xl mx-auto">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-dark-400" />
-          <input
-            type="text"
-            placeholder="Search products by name or SKU..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && fetchProducts()}
-            className="w-full pl-14 pr-32 py-4 text-lg border-2 border-dark-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-surface-50 shadow-sm transition-all"
-          />
-          <button
-            onClick={() => fetchProducts()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors shadow-md"
-          >
-            Search
-          </button>
+        <div className="flex items-center gap-4 max-w-4xl mx-auto">
+          {/* Category Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+              className={`flex items-center gap-2 px-4 py-3 bg-surface-50 border-2 rounded-xl font-medium transition-all ${
+                selectedCategory
+                  ? 'border-primary-500 bg-primary-50 text-primary-700'
+                  : 'border-dark-200 hover:border-primary-300 text-dark-700'
+              }`}
+            >
+              <Layers className="w-5 h-5 text-primary-600" />
+              <span className="min-w-[100px] text-left">
+                {selectedCategory || 'All Categories'}
+              </span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showCategoryDropdown && (
+              <div className="absolute z-20 top-full left-0 mt-2 w-56 bg-surface-50 border border-dark-200 rounded-xl shadow-lg overflow-hidden">
+                <button
+                  onClick={handleClearCategory}
+                  className={`w-full px-4 py-3 text-left font-medium transition-colors ${
+                    !selectedCategory
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'text-dark-600 hover:bg-surface-100'
+                  }`}
+                >
+                  All Categories
+                </button>
+                <div className="border-t border-dark-100 max-h-64 overflow-y-auto">
+                  {categories.length === 0 ? (
+                    <div className="px-4 py-3 text-dark-400 text-sm">No categories available</div>
+                  ) : (
+                    categories.map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => handleCategorySelect(category)}
+                        className={`w-full px-4 py-3 text-left transition-colors ${
+                          selectedCategory === category
+                            ? 'bg-primary-50 text-primary-700 font-medium'
+                            : 'text-dark-600 hover:bg-surface-100'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-dark-400" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="w-full pl-14 pr-32 py-3 text-base border-2 border-dark-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-surface-50 shadow-sm transition-all"
+            />
+            <button
+              onClick={handleSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors shadow-md"
+            >
+              Search
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Results count */}
+      {/* Results count with pagination info */}
       {!isLoading && products.length > 0 && (
-        <div className="mb-4 text-dark-500">
-          Showing <span className="font-semibold text-dark-700">{products.length}</span> products
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-dark-500">
+              Showing <span className="font-semibold text-dark-700">{products.length}</span> products
+              {totalPages > 1 && (
+                <span className="ml-2">
+                  (Page <span className="font-semibold text-primary-600">{currentPage}</span> of{' '}
+                  <span className="font-semibold text-dark-700">{totalPages}</span>)
+                </span>
+              )}
+            </div>
+            {selectedCategory && (
+              <span className="px-3 py-1 bg-primary-100 text-primary-700 text-sm font-medium rounded-full flex items-center gap-1">
+                <Layers className="w-4 h-4" />
+                {selectedCategory}
+                <button
+                  onClick={handleClearCategory}
+                  className="ml-1 hover:text-primary-900"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -62,11 +198,16 @@ export function ProductList() {
             <Package className="w-12 h-12 text-primary-400" />
           </div>
           <h3 className="text-xl font-semibold text-dark-700 mb-2">No Products Found</h3>
-          <p className="text-dark-500">Try adjusting your search or check back later</p>
+          <p className="text-dark-500">
+            {selectedCategory
+              ? `No products in "${selectedCategory}" category`
+              : 'Try adjusting your search or check back later'}
+          </p>
         </div>
       ) : (
         <FadeInContent isLoading={false} minHeight="min-h-[200px]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {/* 3x3 Grid Layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => (
               <ProductCard
                 key={product.id}
@@ -81,6 +222,53 @@ export function ProductList() {
               />
             ))}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-4">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all ${
+                  currentPage === 1
+                    ? 'bg-dark-100 text-dark-400 cursor-not-allowed'
+                    : 'bg-primary-600 text-white hover:bg-primary-700 shadow-md'
+                }`}
+              >
+                <ChevronLeft className="w-5 h-5" />
+                Previous
+              </button>
+
+              <div className="flex items-center gap-2">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-10 h-10 rounded-xl font-semibold transition-all ${
+                      page === currentPage
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'bg-surface-50 text-dark-700 hover:bg-primary-50 border border-dark-200'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all ${
+                  currentPage === totalPages
+                    ? 'bg-dark-100 text-dark-400 cursor-not-allowed'
+                    : 'bg-primary-600 text-white hover:bg-primary-700 shadow-md'
+                }`}
+              >
+                Next
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
         </FadeInContent>
       )}
     </div>
@@ -96,7 +284,7 @@ function ProductCard({
   justAdded: boolean;
   onAdd: () => void;
 }) {
-  const { addToCart, fetchProducts } = useStore();
+  const { addToCart, fetchProducts, currentPage } = useStore();
   const [quantity, setQuantity] = useState(1);
 
   const availableStock = product.available_stock ?? (product.physical_stock - product.reserved_stock);
@@ -111,7 +299,7 @@ function ProductCard({
       }
       onAdd();
       setQuantity(1);
-      fetchProducts();
+      fetchProducts(currentPage);
     }
   };
 
@@ -122,7 +310,7 @@ function ProductCard({
   };
 
   return (
-    <div className={`group bg-surface-50 rounded-2xl overflow-hidden border-2 border-transparent hover:border-primary-500 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 ease-in-out ${isOutOfStock ? 'opacity-75' : ''}`}>
+    <div className={`group bg-surface-50 rounded-2xl overflow-hidden border-2 border-transparent hover:border-primary-500 hover:shadow-lg transition-all duration-300 ease-in-out ${isOutOfStock ? 'opacity-75' : ''}`}>
       {/* Product Image */}
       <div className="relative aspect-square bg-dark-100 overflow-hidden">
         {product.image_url ? (
@@ -137,7 +325,16 @@ function ProductCard({
           </div>
         )}
 
-        {/* Stock Badge Overlay */}
+        {/* Category Badge */}
+        {product.category && (
+          <div className="absolute top-3 left-3">
+            <span className="px-2 py-1 bg-primary-600/90 text-white text-xs font-semibold rounded-lg backdrop-blur-sm">
+              {product.category}
+            </span>
+          </div>
+        )}
+
+        {/* Stock Badge */}
         <div className="absolute top-3 right-3">
           {isOutOfStock ? (
             <span className="px-3 py-1.5 bg-dark-800/90 text-white text-xs font-semibold rounded-full backdrop-blur-sm">

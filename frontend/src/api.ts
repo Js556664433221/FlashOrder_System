@@ -33,6 +33,19 @@ export interface AuthUser {
   role: string;
 }
 
+// Types for paginated response
+export interface PaginatedProducts {
+  products: Product[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export interface CategoriesResponse {
+  categories: string[];
+}
+
 export const api = {
   // Authentication
   async getCurrentUser(token: string): Promise<AuthUser> {
@@ -46,14 +59,33 @@ export const api = {
     return res.json();
   },
 
-  // Products
-  async getProducts(search?: string, role?: 'admin' | 'salesman' | null): Promise<Product[]> {
-    const url = search
-      ? `${API_BASE}/products/?search=${encodeURIComponent(search)}`
-      : `${API_BASE}/products/`;
+  // Products with pagination and filtering
+  async getProducts(
+    search?: string,
+    role?: 'admin' | 'salesman' | null,
+    page: number = 1,
+    perPage: number = 9,
+    category?: string
+  ): Promise<PaginatedProducts> {
+    const offset = (page - 1) * perPage;
+    let url = `${API_BASE}/products/?limit=${perPage}&offset=${offset}`;
+    if (search) {
+      url += `&search=${encodeURIComponent(search)}`;
+    }
+    if (category) {
+      url += `&category=${encodeURIComponent(category)}`;
+    }
     const res = await fetch(url, { headers: authHeaders(role || 'salesman') });
     if (!res.ok) throw new Error('Failed to fetch products');
     return res.json();
+  },
+
+  // Get all categories
+  async getCategories(role?: 'admin' | 'salesman' | null): Promise<string[]> {
+    const res = await fetch(`${API_BASE}/products/categories`, { headers: authHeaders(role || 'salesman') });
+    if (!res.ok) throw new Error('Failed to fetch categories');
+    const data: CategoriesResponse = await res.json();
+    return data.categories;
   },
 
   async getProduct(id: number, role?: 'admin' | 'salesman' | null): Promise<Product> {

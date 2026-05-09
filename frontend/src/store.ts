@@ -15,11 +15,16 @@ interface Store {
   isAuthenticated: boolean;
   // Data state
   products: Product[];
+  categories: string[];
   cart: CartItem[];
   orders: Order[];
   searchQuery: string;
+  selectedCategory: string;
   isLoading: boolean;
   error: string | null;
+  // Pagination state
+  currentPage: number;
+  totalPages: number;
   // Admin state
   adminDashboard: AdminDashboard | null;
   // Last placed order for receipt download
@@ -29,7 +34,10 @@ interface Store {
   promoReplacedMessage: string | null;
   setRole: (role: 'admin' | 'salesman') => void;
   setSearchQuery: (q: string) => void;
-  fetchProducts: () => Promise<void>;
+  setSelectedCategory: (category: string) => void;
+  setCurrentPage: (page: number) => void;
+  fetchProducts: (page?: number) => Promise<void>;
+  fetchCategories: () => Promise<void>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: number) => void;
   updateQuantity: (productId: number, quantity: number) => void;
@@ -73,11 +81,15 @@ export const useStore = create<Store>()(
       role: 'admin',
       isAuthenticated: true,
       products: [],
+      categories: [],
       cart: [],
       orders: [],
       searchQuery: '',
+      selectedCategory: '',
       isLoading: false,
       error: null,
+      currentPage: 1,
+      totalPages: 1,
       adminDashboard: null,
       lastPlacedOrder: null,
       appliedPromo: null,
@@ -89,15 +101,34 @@ export const useStore = create<Store>()(
         set({ role, user: { id: 1, username, role, is_superadmin } });
       },
 
-      setSearchQuery: (q) => set({ searchQuery: q }),
+      setSearchQuery: (q) => set({ searchQuery: q, currentPage: 1 }),
 
-      fetchProducts: async () => {
+      setSelectedCategory: (category) => set({ selectedCategory: category, currentPage: 1 }),
+
+      setCurrentPage: (page) => set({ currentPage: page }),
+
+      fetchProducts: async (page = 1) => {
         set({ isLoading: true, error: null });
         try {
-          const products = await api.getProducts(get().searchQuery || undefined, get().role);
-          set({ products, isLoading: false });
+          const result = await api.getProducts(
+            get().searchQuery || undefined,
+            get().role,
+            page,
+            9,
+            get().selectedCategory || undefined
+          );
+          set({ products: result.products, totalPages: result.total_pages, isLoading: false });
         } catch (e) {
           set({ error: (e as Error).message, isLoading: false });
+        }
+      },
+
+      fetchCategories: async () => {
+        try {
+          const categories = await api.getCategories(get().role);
+          set({ categories });
+        } catch (e) {
+          console.error('Failed to fetch categories:', e);
         }
       },
 

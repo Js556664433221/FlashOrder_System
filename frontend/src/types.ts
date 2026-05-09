@@ -7,6 +7,7 @@ export interface Product {
   available_stock: number;
   price: number;
   description?: string;
+  category?: string;
   image_url?: string;
 }
 

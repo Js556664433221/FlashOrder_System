@@ -70,6 +70,7 @@ class ProductStockResponse(BaseModel):
     available_stock: int
     price: float
     description: Optional[str] = None
+    category: Optional[str] = None
     image_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -78,6 +79,7 @@ class ProductStockResponse(BaseModel):
 class AdminProductCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    category: Optional[str] = None
     image_url: Optional[str] = None
     price: float
     stock_quantity: int
@@ -86,6 +88,7 @@ class AdminProductCreate(BaseModel):
 class AdminProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[str] = None
     image_url: Optional[str] = None
     price: Optional[float] = None
     stock_quantity: Optional[int] = None
