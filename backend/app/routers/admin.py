@@ -194,13 +194,20 @@ def validate_status_transition(current_status: str, new_status: str) -> bool:
         ],
         OrderStatusEnum.PAID.value: [
             OrderStatusEnum.PREPARING.value,
+            OrderStatusEnum.READY_TO_SHIP.value,
             OrderStatusEnum.READY_FOR_PICKUP.value,
             OrderStatusEnum.SHIPPED.value,
             OrderStatusEnum.COMPLETED.value,
             OrderStatusEnum.CANCELLED.value,
         ],
         OrderStatusEnum.PREPARING.value: [
+            OrderStatusEnum.READY_TO_SHIP.value,
             OrderStatusEnum.READY_FOR_PICKUP.value,
+            OrderStatusEnum.SHIPPED.value,
+            OrderStatusEnum.COMPLETED.value,
+            OrderStatusEnum.CANCELLED.value,
+        ],
+        OrderStatusEnum.READY_TO_SHIP.value: [
             OrderStatusEnum.SHIPPED.value,
             OrderStatusEnum.COMPLETED.value,
             OrderStatusEnum.CANCELLED.value,
@@ -219,6 +226,12 @@ def validate_status_transition(current_status: str, new_status: str) -> bool:
             OrderStatusEnum.PAID.value,
         ],
         OrderStatusEnum.CANCELLED.value: [],
+        # Legacy string values for compatibility
+        "Paid": ["Preparing", "Ready to Ship", "Ready for Pickup", "Shipped", "Completed", "Cancelled"],
+        "Preparing": ["Ready to Ship", "Ready for Pickup", "Shipped", "Completed", "Cancelled"],
+        "Ready to Ship": ["Shipped", "Completed", "Cancelled"],
+        "Ready for Pickup": ["Shipped", "Completed", "Cancelled"],
+        "Shipped": ["Completed"],
     }
     return new_status in valid_transitions.get(current_status, [])
 

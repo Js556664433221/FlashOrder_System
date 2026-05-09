@@ -119,7 +119,14 @@ export const useStore = create<Store>()(
           );
           set({ products: result.products, totalPages: result.total_pages, isLoading: false });
         } catch (e) {
-          set({ error: (e as Error).message, isLoading: false });
+          const error = e as Error;
+          console.error('fetchProducts error details:', {
+            message: error.message,
+            name: error.name,
+            cause: error.cause,
+            stack: error.stack?.split('\n').slice(0, 3).join('\n')
+          });
+          set({ error: error.message || 'Failed to fetch products', isLoading: false });
         }
       },
 
@@ -128,7 +135,14 @@ export const useStore = create<Store>()(
           const categories = await api.getCategories(get().role);
           set({ categories });
         } catch (e) {
-          console.error('Failed to fetch categories:', e);
+          const error = e as Error;
+          console.error('fetchCategories error details:', {
+            message: error.message,
+            name: error.name,
+            cause: error.cause,
+            stack: error.stack?.split('\n').slice(0, 3).join('\n')
+          });
+          // Non-critical, don't update error state
         }
       },
 

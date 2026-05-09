@@ -32,6 +32,7 @@ class OrderStatusEnum(str, enum.Enum):
     PAYMENT_REJECTED = "Payment Rejected"
     PAID = "Paid"
     PREPARING = "Preparing"
+    READY_TO_SHIP = "Ready to Ship"
     READY_FOR_PICKUP = "Ready for Pickup"
     SHIPPED = "Shipped"
     COMPLETED = "Completed"

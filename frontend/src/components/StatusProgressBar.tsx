@@ -15,7 +15,7 @@ export const ORDER_PROGRESS_STEPS: StatusStep[] = [
   { value: 'Payment Under Review', label: 'Review', color: 'text-amber-700', bgColor: 'bg-amber-100', borderColor: 'border-amber-300', activeColor: 'bg-amber-500' },
   { value: 'Paid', label: 'Paid', color: 'text-accent-green-700', bgColor: 'bg-accent-green/10', borderColor: 'border-accent-green/30', activeColor: 'bg-accent-green' },
   { value: 'Preparing', label: 'Preparing', color: 'text-primary-700', bgColor: 'bg-primary-100', borderColor: 'border-primary-300', activeColor: 'bg-primary-600' },
-  { value: 'Ready for Pickup', label: 'Ready', color: 'text-indigo-700', bgColor: 'bg-indigo-100', borderColor: 'border-indigo-300', activeColor: 'bg-indigo-500' },
+  { value: 'Ready to Ship', label: 'Ready to Ship', color: 'text-indigo-700', bgColor: 'bg-indigo-100', borderColor: 'border-indigo-300', activeColor: 'bg-indigo-500' },
   { value: 'Shipped', label: 'Shipped', color: 'text-cyan-700', bgColor: 'bg-cyan-100', borderColor: 'border-cyan-300', activeColor: 'bg-cyan-500' },
   { value: 'Completed', label: 'Completed', color: 'text-accent-green-700', bgColor: 'bg-accent-green/10', borderColor: 'border-accent-green/30', activeColor: 'bg-accent-green' },
 ];
@@ -206,7 +206,7 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
     );
   }
 
-  if (status === 'Preparing' || status === 'Ready for Pickup' || status === 'Shipped') {
+  if (status === 'Preparing' || status === 'Ready to Ship' || status === 'Ready for Pickup' || status === 'Shipped') {
     return (
       <span className={`inline-flex items-center gap-1.5 rounded-full font-semibold border ${step?.bgColor || 'bg-primary-100'} text-primary-700 border-primary-300 ${sizeClasses[size]}`}>
         {step?.label || status}

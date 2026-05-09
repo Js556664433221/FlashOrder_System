@@ -18,9 +18,12 @@ import {
   Image as ImageIcon,
   Check,
   RefreshCw,
+  Bell,
+  FileText,
+  Clock,
 } from 'lucide-react';
 import { formatCurrency, formatDiscount, ORDER_STATUSES } from '../../utils';
-import { StatusProgressBar, StatusBadge } from '../../components/StatusProgressBar';
+import { StatusBadge } from '../../components/StatusProgressBar';
 import { LoadingSpinner, ButtonSpinner, FadeInContent } from '../../components/LoadingSpinner';
 import type { Order } from '../../types';
 
@@ -129,6 +132,37 @@ export function OrdersPage() {
     }
   };
 
+  const handleMarkReady = async (order: Order) => {
+    if (!confirm(`Mark order ${order.order_number} as ready?\n\nThis will notify the customer that their ${order.delivery_method === 'Delivery' ? 'order is ready to ship' : 'order is ready for pickup'}.`)) return;
+
+    setIsUpdating(true);
+    try {
+      const newStatus = order.delivery_method === 'Delivery' ? 'Ready to Ship' : 'Ready for Pickup';
+      await api.updateAdminOrder(order.id, { status: newStatus as any });
+      await fetchOrders();
+    } catch (e) {
+      alert(`Failed to update status: ${(e as Error).message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleGenerateInvoice = async (order: Order) => {
+    try {
+      const blob = await api.downloadReceipt(order.id, 'admin');
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OR_${order.or_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(`Failed to generate invoice: ${(e as Error).message}`);
+    }
+  };
+
   const openProofModal = (order: Order) => {
     setIsModalLoading(true);
     setSelectedOrder(order);
@@ -204,22 +238,6 @@ export function OrdersPage() {
         </div>
       </div>
 
-      {/* Status Legend */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-700">Order Status Flow</h3>
-          <button
-            onClick={() => fetchOrders()}
-            className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
-            title="Refresh orders"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Auto-refreshes every 30s
-          </button>
-        </div>
-        <StatusProgressBar status="Preparing" size="md" />
-      </div>
-
       {/* Orders List */}
       <div className="space-y-4">
         {filteredOrders.length === 0 ? (
@@ -256,7 +274,7 @@ export function OrdersPage() {
                   </div>
                   {/* Status Progress Bar */}
                   <div className="mt-3">
-                    <StatusProgressBar status={order.status} size="sm" />
+                    <StatusBadge status={order.status} />
                   </div>
                   {order.remark && (
                     <div className="mt-2 p-2 bg-purple-50 rounded-lg text-sm text-purple-700">
@@ -308,6 +326,23 @@ export function OrdersPage() {
 
               {/* Quick Actions */}
               <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
+                {/* Pending Review - No payment proof uploaded */}
+                {order.status === 'Pending Payment' && (
+                  <>
+                    <span className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Awaiting Payment
+                    </span>
+                    <button
+                      onClick={() => openRemarkModal(order)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    >
+                      <Edit3 className="w-3 h-3 inline mr-1" />
+                      Add Remark
+                    </button>
+                  </>
+                )}
+                {/* Review - Payment proof uploaded, needs confirmation */}
                 {order.status === 'Payment Under Review' && (
                   <button
                     onClick={() => openProofModal(order)}
@@ -318,59 +353,84 @@ export function OrdersPage() {
                     View & Verify Proof
                   </button>
                 )}
-                {/* Delivery orders: Start Preparing */}
+                {/* Paid - Auto-transitions to Preparing on confirm, but allow manual override */}
                 {order.status === 'Paid' && order.delivery_method === 'Delivery' && (
                   <button
                     onClick={() => handleStatusChange(order, 'Preparing')}
                     disabled={isUpdating}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
                   >
+                    <Package className="w-3 h-3" />
                     Start Preparing
                   </button>
                 )}
-                {/* Delivery orders: Mark as Shipped */}
-                {order.status === 'Preparing' && order.delivery_method === 'Delivery' && (
-                  <button
-                    onClick={() => handleStatusChange(order, 'Shipped')}
-                    disabled={isUpdating}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50"
-                  >
-                    <Truck className="w-3 h-3 inline mr-1" />
-                    Mark as Shipped
-                  </button>
-                )}
-                {/* Pickup orders: Go directly to Ready for Pickup */}
+                {/* Paid Pickup - Can mark as Ready directly */}
                 {order.status === 'Paid' && order.delivery_method === 'Pickup' && (
                   <button
-                    onClick={() => handleStatusChange(order, 'Ready for Pickup')}
+                    onClick={() => handleMarkReady(order)}
                     disabled={isUpdating}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1"
                   >
+                    <Bell className="w-3 h-3" />
                     Mark Ready for Pickup
                   </button>
                 )}
-                {/* Pickup orders: Customer collected */}
+                {/* Preparing - Add Ready button for delivery orders */}
+                {order.status === 'Preparing' && order.delivery_method === 'Delivery' && (
+                  <button
+                    onClick={() => handleMarkReady(order)}
+                    disabled={isUpdating}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <Bell className="w-3 h-3" />
+                    Mark Ready to Ship
+                  </button>
+                )}
+                {/* Ready for Pickup / Ready to Ship - Generate Invoice */}
+                {(order.status === 'Ready for Pickup' || order.status === 'Ready to Ship') && (
+                  <button
+                    onClick={() => handleGenerateInvoice(order)}
+                    disabled={isUpdating}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <FileText className="w-3 h-3" />
+                    Generate Invoice
+                  </button>
+                )}
+                {/* Ready for Pickup - Customer collected */}
                 {order.status === 'Ready for Pickup' && order.delivery_method === 'Pickup' && (
                   <button
                     onClick={() => handleStatusChange(order, 'Completed')}
                     disabled={isUpdating}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
                   >
-                    <Check className="w-3 h-3 inline mr-1" />
+                    <Check className="w-3 h-3" />
                     Customer Collected - Complete
                   </button>
                 )}
-                {/* Delivery orders: Mark as Completed after Shipped */}
-                {order.status === 'Shipped' && order.delivery_method === 'Delivery' && (
+                {/* Ready to Ship - Shipped */}
+                {order.status === 'Ready to Ship' && (
+                  <button
+                    onClick={() => handleStatusChange(order, 'Shipped')}
+                    disabled={isUpdating}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <Truck className="w-3 h-3" />
+                    Mark as Shipped
+                  </button>
+                )}
+                {/* Shipped - Mark as Completed */}
+                {order.status === 'Shipped' && (
                   <button
                     onClick={() => handleStatusChange(order, 'Completed')}
                     disabled={isUpdating}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
                   >
-                    <Check className="w-3 h-3 inline mr-1" />
+                    <Check className="w-3 h-3" />
                     Mark as Completed
                   </button>
                 )}
+                {/* Cancelled orders */}
                 {(order.status === 'Pending Payment' || order.status === 'Payment Rejected') && (
                   <button
                     onClick={() => handleStatusChange(order, 'Cancelled')}
@@ -773,6 +833,26 @@ export function OrdersPage() {
               <div className="border-t border-gray-200 pt-4">
                 <h4 className="font-medium text-gray-800 mb-3">Update Status</h4>
                 <div className="flex flex-wrap gap-2">
+                  {/* Pending Review - No payment proof uploaded */}
+                  {selectedOrder.status === 'Pending Payment' && (
+                    <>
+                      <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        Awaiting Payment
+                      </span>
+                      <button
+                        onClick={() => {
+                          openRemarkModal(selectedOrder);
+                          setShowDetailModal(false);
+                        }}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        Add Remark
+                      </button>
+                    </>
+                  )}
+                  {/* Review - Payment proof uploaded */}
                   {selectedOrder.status === 'Payment Under Review' && (
                     <button
                       onClick={() => {
@@ -780,12 +860,13 @@ export function OrdersPage() {
                         openProofModal(selectedOrder);
                       }}
                       disabled={isUpdating}
-                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
+                      <ImageIcon className="w-4 h-4" />
                       View & Verify Proof
                     </button>
                   )}
-                  {/* Delivery orders: Start Preparing */}
+                  {/* Paid Delivery - Start Preparing */}
                   {selectedOrder.status === 'Paid' && selectedOrder.delivery_method === 'Delivery' && (
                     <button
                       onClick={() => {
@@ -793,54 +874,83 @@ export function OrdersPage() {
                         setShowDetailModal(false);
                       }}
                       disabled={isUpdating}
-                      className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                      className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
+                      <Package className="w-4 h-4" />
                       Start Preparing
                     </button>
                   )}
-                  {/* Delivery orders: Mark as Shipped */}
-                  {selectedOrder.status === 'Preparing' && selectedOrder.delivery_method === 'Delivery' && (
-                    <button
-                      onClick={() => {
-                        handleStatusChange(selectedOrder, 'Shipped');
-                        setShowDetailModal(false);
-                      }}
-                      disabled={isUpdating}
-                      className="px-4 py-2 bg-cyan-600 text-white font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-                    >
-                      <Truck className="w-4 h-4" />
-                      Mark as Shipped
-                    </button>
-                  )}
-                  {/* Pickup orders: Go directly to Ready for Pickup */}
+                  {/* Paid Pickup - Mark Ready for Pickup */}
                   {selectedOrder.status === 'Paid' && selectedOrder.delivery_method === 'Pickup' && (
                     <button
                       onClick={() => {
-                        handleStatusChange(selectedOrder, 'Ready for Pickup');
+                        handleMarkReady(selectedOrder);
                         setShowDetailModal(false);
                       }}
                       disabled={isUpdating}
-                      className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                      className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
+                      <Bell className="w-4 h-4" />
                       Mark Ready for Pickup
                     </button>
                   )}
-                  {/* Pickup orders: Customer collected */}
-                  {selectedOrder.status === 'Ready for Pickup' && selectedOrder.delivery_method === 'Pickup' && (
+                  {/* Preparing Delivery - Mark Ready to Ship */}
+                  {selectedOrder.status === 'Preparing' && selectedOrder.delivery_method === 'Delivery' && (
                     <button
                       onClick={() => {
-                        handleStatusChange(selectedOrder, 'Completed');
+                        handleMarkReady(selectedOrder);
                         setShowDetailModal(false);
                       }}
                       disabled={isUpdating}
-                      className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                      className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
-                      <Check className="w-4 h-4" />
-                      Customer Collected - Complete
+                      <Bell className="w-4 h-4" />
+                      Mark Ready to Ship
                     </button>
                   )}
-                  {/* Delivery orders: Mark as Completed after Shipped */}
-                  {selectedOrder.status === 'Shipped' && selectedOrder.delivery_method === 'Delivery' && (
+                  {/* Ready for Pickup / Ready to Ship - Generate Invoice */}
+                  {(selectedOrder.status === 'Ready for Pickup' || selectedOrder.status === 'Ready to Ship') && (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleGenerateInvoice(selectedOrder);
+                        }}
+                        disabled={isUpdating}
+                        className="px-4 py-2 bg-cyan-600 text-white font-medium rounded-lg hover:bg-cyan-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Generate Invoice
+                      </button>
+                      {selectedOrder.status === 'Ready for Pickup' && (
+                        <button
+                          onClick={() => {
+                            handleStatusChange(selectedOrder, 'Completed');
+                            setShowDetailModal(false);
+                          }}
+                          disabled={isUpdating}
+                          className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        >
+                          <Check className="w-4 h-4" />
+                          Customer Collected - Complete
+                        </button>
+                      )}
+                      {selectedOrder.status === 'Ready to Ship' && (
+                        <button
+                          onClick={() => {
+                            handleStatusChange(selectedOrder, 'Shipped');
+                            setShowDetailModal(false);
+                          }}
+                          disabled={isUpdating}
+                          className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        >
+                          <Truck className="w-4 h-4" />
+                          Mark as Shipped
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {/* Shipped - Mark as Completed */}
+                  {selectedOrder.status === 'Shipped' && (
                     <button
                       onClick={() => {
                         handleStatusChange(selectedOrder, 'Completed');
