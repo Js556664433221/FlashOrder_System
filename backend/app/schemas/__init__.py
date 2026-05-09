@@ -7,15 +7,31 @@ from enum import Enum
 class OrderStatus(str, Enum):
     PENDING_PAYMENT = "Pending Payment"
     PAYMENT_UNDER_REVIEW = "Payment Under Review"
+    PAYMENT_REJECTED = "Payment Rejected"
     PAID = "Paid"
+    PREPARING = "Preparing"
+    READY_FOR_PICKUP = "Ready for Pickup"
+    SHIPPED = "Shipped"
+    COMPLETED = "Completed"
     CANCEL_REQUESTED = "Cancel Requested"
     CANCELLED = "Cancelled"
 
 
+class DeliveryMethod(str, Enum):
+    DELIVERY = "Delivery"
+    PICKUP = "Pickup"
+
+
 class AdminOrderStatus(str, Enum):
-    PENDING = "Pending"
+    PENDING = "Pending Payment"
+    PAYMENT_UNDER_REVIEW = "Payment Under Review"
+    PAYMENT_REJECTED = "Payment Rejected"
+    PAID = "Paid"
+    PREPARING = "Preparing"
+    READY_FOR_PICKUP = "Ready for Pickup"
     SHIPPED = "Shipped"
     COMPLETED = "Completed"
+    CANCEL_REQUESTED = "Cancel Requested"
     CANCELLED = "Cancelled"
 
 
@@ -105,6 +121,7 @@ class OrderItemCreate(BaseModel):
 class OrderItemResponse(BaseModel):
     product_id: int
     product_name: str
+    product_sku: Optional[str] = None
     product_image_url: str | None = None
     quantity: int
     unit_price: float
@@ -132,13 +149,25 @@ class OrderBase(BaseModel):
 
 class OrderCreate(BaseModel):
     items: list[OrderItemCreate]
+    customer_name: str
+    delivery_method: DeliveryMethod = DeliveryMethod.PICKUP
+    address: Optional[str] = None
+    promo_code: Optional[str | list[str]] = None
+    remark: Optional[str] = None
 
 
 class OrderResponse(BaseModel):
     id: int
     order_number: str
+    or_number: str
+    customer_name: str
+    delivery_method: str
+    address: Optional[str] = None
     total_price: float
+    discount_amount: float = 0.0
+    applied_promo_id: Optional[int] = None
     status: str
+    remark: Optional[str] = None
     user_id: int
     created_at: datetime
     items: list[OrderItemResponse] = []
@@ -147,15 +176,24 @@ class OrderResponse(BaseModel):
 
 
 # AdminPaymentResponse must be defined before AdminOrderResponse due to forward reference
+class OrderItemUpdate(BaseModel):
+    product_id: int
+    quantity: int
+
+
 class AdminOrderUpdate(BaseModel):
     status: Optional[AdminOrderStatus] = None
     payment_status: Optional[AdminPaymentStatus] = None
+    remark: Optional[str] = None
+    items: Optional[list[OrderItemUpdate]] = None
 
 
 class AdminPaymentResponse(BaseModel):
     id: int
     order_id: int
     receipt_url: str
+    rejection_reason: Optional[str] = None
+    rejected_at: Optional[datetime] = None
     uploaded_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -166,6 +204,7 @@ class AdminOrderResponse(BaseModel):
     order_number: str
     total_price: float
     status: str
+    remark: Optional[str] = None
     created_at: datetime
     items: list[OrderItemWithProduct] = []
     payment: Optional[AdminPaymentResponse] = None
@@ -206,6 +245,10 @@ class PaymentResponse(BaseModel):
 class VerifyPaymentRequest(BaseModel):
     action: str
     notes: Optional[str] = None
+
+
+class RejectPaymentRequest(BaseModel):
+    reason: str
 
 
 class VerifyPaymentResponse(BaseModel):
@@ -249,7 +292,8 @@ class ForceCancelResponse(BaseModel):
 
 class DashboardSummaryResponse(BaseModel):
     total_orders: int
-    pending_payments: int
+    today_sales: float
+    pending_orders: int
     paid_orders: int
     cancelled_orders: int
     low_stock_alerts: list["LowStockProduct"]
@@ -267,3 +311,143 @@ class LowStockProduct(BaseModel):
 
 
 DashboardSummaryResponse.model_rebuild()
+
+
+class DiscountType(str, Enum):
+    PERCENTAGE = "percentage"
+    FLAT = "flat"
+
+
+class PromoCodeBase(BaseModel):
+    code: str
+    discount_type: DiscountType
+    value: float
+    expiry_date: Optional[datetime] = None
+    is_active: bool = True
+
+
+class PromoCodeCreate(PromoCodeBase):
+    pass
+
+
+class PromoCodeUpdate(BaseModel):
+    code: Optional[str] = None
+    discount_type: Optional[DiscountType] = None
+    value: Optional[float] = None
+    expiry_date: Optional[datetime] = None
+    is_active: Optional[bool] = None
+
+
+class PromoCodeResponse(PromoCodeBase):
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PromoCodeValidationResult(BaseModel):
+    valid: bool
+    code: Optional[str] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[float] = None
+    message: str
+
+
+class UserStatus(str, Enum):
+    ACTIVE = "Active"
+    SUSPENDED = "Suspended"
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    status: str
+    is_active: int
+    is_superadmin: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserStatusUpdateResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    status: str
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CreateAdminRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
+class CreateAdminResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    status: str
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PromoteUserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    status: str
+    message: str
+
+
+class PromoStatsResponse(BaseModel):
+    id: int
+    code: str
+    discount_type: str
+    value: float
+    expiry_date: Optional[datetime] = None
+    is_active: bool
+    usage_count: int
+    total_discount_given: float
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Customer Profile Schemas
+class CustomerProfileCreate(BaseModel):
+    name: str
+    company_name: Optional[str] = None
+    location: Optional[str] = None
+    contact_number: str
+    email: Optional[str] = None
+
+
+class CustomerProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    company_name: Optional[str] = None
+    location: Optional[str] = None
+    contact_number: Optional[str] = None
+    email: Optional[str] = None
+
+
+class CustomerProfileResponse(BaseModel):
+    id: int
+    salesman_id: int
+    name: str
+    company_name: Optional[str] = None
+    location: Optional[str] = None
+    contact_number: str
+    email: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

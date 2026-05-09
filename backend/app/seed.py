@@ -10,7 +10,7 @@ def hash_password(password: str) -> str:
 
 
 async def seed_default_users(db: AsyncSession) -> None:
-    """Seed default admin and staff users if they don't exist."""
+    """Seed default admin and salesman users if they don't exist."""
     admin_exists = await db.execute(select(User).filter(User.username == "admin"))
     if not admin_exists.scalar_one_or_none():
         admin = User(
@@ -18,19 +18,21 @@ async def seed_default_users(db: AsyncSession) -> None:
             email="admin@flashorder.com",
             hashed_password=hash_password("admin123"),
             role=UserRole.ADMIN.value,
-            is_active=1
+            is_active=1,
+            is_superadmin=1
         )
         db.add(admin)
 
-    staff_exists = await db.execute(select(User).filter(User.username == "staff"))
-    if not staff_exists.scalar_one_or_none():
-        staff = User(
-            username="staff",
-            email="staff@flashorder.com",
-            hashed_password=hash_password("staff123"),
-            role=UserRole.STAFF.value,
-            is_active=1
+    salesman_exists = await db.execute(select(User).filter(User.username == "salesman"))
+    if not salesman_exists.scalar_one_or_none():
+        salesman = User(
+            username="salesman",
+            email="salesman@flashorder.com",
+            hashed_password=hash_password("salesman123"),
+            role=UserRole.SALESMAN.value,
+            is_active=1,
+            is_superadmin=0
         )
-        db.add(staff)
+        db.add(salesman)
 
     await db.commit()

@@ -66,7 +66,7 @@ async def login(
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="User account is disabled")
+        raise HTTPException(status_code=403, detail="Account is suspended")
 
     token = create_token(user.id)
 
@@ -99,6 +99,27 @@ async def get_current_user_from_token(
         raise HTTPException(status_code=401, detail="User not found")
 
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="User account is disabled")
+        raise HTTPException(status_code=403, detail="Account is suspended")
 
     return user
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user_from_token)
+):
+    """
+    Get current user information from JWT token.
+
+    This endpoint fetches the latest user data from the database,
+    ensuring that role changes (e.g., promotions) are reflected
+    immediately without requiring the user to re-login.
+
+    Returns:
+        Current user information including the latest role
+    """
+    return UserResponse(
+        id=current_user.id,
+        username=current_user.username,
+        role=current_user.role
+    )

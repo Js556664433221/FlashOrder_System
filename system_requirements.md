@@ -1,69 +1,70 @@
-这份 `system_requirement.md` 采用了模块化设计，重点突出了 **Vite + TS** 的前端架构和 **PostgreSQL** 的数据一致性，非常适合作为 3-4 天快速开发的指导文档。
+System Requirement: FlashOrder Portal (Integrated Version)
 
----
+1. Project OverviewA lightweight, mobile-responsive web portal designed for frontline sales staff and administrators. It facilitates real-time stock inquiries, order placement with delivery/pickup options, payment verification, and comprehensive administrative management.
 
-# System Requirement: FlashOrder Portal
+2. Technology Stack
+Frontend: Vite + TypeScript + React/Vue 3 + Tailwind CSS.
+Backend: Python (FastAPI) - Asynchronous I/O focus.
+Database: PostgreSQL (Relational, ACID compliant).
+AI Tools: Claude Code / Cursor (for rapid prototyping and logic generation).
 
-## 1. Project Overview
-A lightweight, mobile-responsive web portal designed for frontline sales and counter staff to manage stock inquiries, place orders, and upload payment proofs in real-time.
+3. Functional Requirements
+Module A: Product & Inventory (Sales & Admin)
+Grid Display: Products must be displayed in a 3x3 grid matrix (9 items per page).
+Pagination: * Frontend: Controls for "Previous", "Next", and specific page numbers.
+Backend: API must support limit=9 and offset parameters for efficient loading.
+Quick Search: Filter products by SKU or Name via a search bar.
+Real-time Balance: Ensure stock numbers reflect the latest DB state upon page load.
 
----
+Module B: Cart & Order Creation (Salesman)
+Customer Details: Required field for "Customer Name".
+Delivery Logic:Options: Delivery or Pickup.If "Delivery" is selected, an address input field is mandatory.
+Promo Code System: * Input field in the Cart/Checkout page.
+Validation logic: Check code validity, expiry date, and apply discount (Percentage or Flat Amount).
+Validation & Concurrency:Backend must verify stock before order confirmation.
+Atomic Transactions: Use PostgreSQL transactions to prevent overselling during concurrent orders.
+Official Receipt (OR): System auto-generates a unique OR number and provides a PDF version for download/viewing.
 
-## 2. Technology Stack
-*   **Frontend:** Vite + TypeScript + React/Vue 3 + Tailwind CSS.
-*   **Backend:** Python (FastAPI) - Asynchronous I/O focus.
-*   **Database:** PostgreSQL (Relational, ACID compliant).
-*   **AI Tools:** Claude Code / Cursor (for rapid prototyping and logic generation).
+Module C: Payment & Tracking (Salesman)
+Workflow: User selects a Pending Payment order to attach a receipt.
+File Support: Upload images (JPG/PNG) or PDF bank slips.
+Order Progression: Status transitions: Pending -> Payment Under Review -> Completed/Delivered.
 
----
+Module D: Admin Management Portal (Admin Only)
+Fixed Layout: A dashboard with a Fixed Sidebar and Top Navigation. Content switches in the main view area only.
+Dashboard KPIs: Real-time stats on Today’s Sales, Pending Orders, and Stock Alerts.
 
-## 3. Functional Requirements
+User Management:
+View Accounts: List all registered users and their roles.
+Suspension: One-click "Suspend" toggle.Suspended users cannot login or place orders.
+Role Promotion: Ability to create new Admin accounts or promote a "User" to "Admin".
+Marketing Tools: CRUD (Create, Read, Update, Delete) interface for Promo Codes (Code, Type, Value, Expiry).
 
-### Module A: Real-time Stock Balance
-*   **Inventory List:** View all products with their current "Available" quantity.
-*   **Quick Search:** Filter products by SKU or Name via a search bar.
-*   **Data Accuracy:** Ensure stock numbers reflect the latest database state upon page load.
+4. UI/UX & Navigation LogicTop Bar Navigation OrderProduct (Stock) - Browse items.
+Cart - Checkout and Promo application.Order - Order tracking and history.
+Delivery & Check Payment - Logistics and payment verification status.
+Role-Based Data IsolationSalesman View: Can ONLY see orders and activity history created by themselves.
+Admin View: Full visibility. Can see all orders, all users, and all system activity logs.
+Implementation: Backend must filter queries based on the UserID and Role extracted from the Auth Token.
 
-### Module B: Cart & Order Placement
-*   **Shopping Cart:** Add/remove items and specify quantities.
-*   **Validation:** 
-    *   Backend must verify stock availability *before* order confirmation.
-    *   Atomic stock deduction (PostgreSQL Transactions) to prevent overselling.
-*   **Order Creation:** 
-    *   Generate a unique `Order ID`.
-    *   Set initial status to `Pending Payment`.
+5. Data Schema (PostgreSQL)
+users: id, username, password_hash, role (Admin/Salesman), status (Active/Suspended).
+products: id, sku, name, stock_balance, price.
+orders: id, order_number, or_number, customer_name, delivery_method, address, total_price, discount_amount, status, created_by_uuid.
+order_items: id, order_id, product_id, quantity, unit_price.
+payments: id, order_id, receipt_url, uploaded_at.
+promo_codes: id, code, discount_type, value, expiry_date, is_active.
 
-### Module C: Payment Proof Upload
-*   **Workflow:** User selects a `Pending Payment` order to attach a receipt.
-*   **File Support:** Upload images (JPG/PNG) or PDF bank slips.
-*   **Status Update:** Automatically transition order status to `Payment Under Review` upon successful upload.
 
----
+6. Non-Functional Requirements
+Performance: API response for stock and product pagination $< 200ms$.
+Mobile First: UI must be optimized for handheld devices used by sales staff on-the-go.
+Security: * Role-Based Access Control (RBAC) enforced on all API endpoints.
+File type validation for all uploads.
+Integrity: Use row-level locking for stock updates.
 
-## 4. System Architecture & Data Schema
-
-### Core Database Tables (PostgreSQL)
-1.  **`products`**: `id`, `sku`, `name`, `stock_balance`, `price`.
-2.  **`orders`**: `id`, `order_number`, `total_price`, `status`, `created_at`.
-3.  **`order_items`**: `id`, `order_id`, `product_id`, `quantity`, `unit_price`.
-4.  **`payments`**: `id`, `order_id`, `receipt_url`, `uploaded_at`.
-
----
-
-## 5. Non-Functional Requirements
-*   **Performance:** API response for stock inquiry should be $< 200ms$.
-*   **Responsiveness:** UI must be optimized for mobile devices (Sales staff on-the-go).
-*   **Data Integrity:** Use PostgreSQL row-level locking or transactions to handle concurrent orders safely.
-*   **Security:** Basic file type validation for uploads to prevent malicious scripts.
-
----
-
-## 6. AI-Assisted Development Plan (3-4 Days)
-*   **Phase 1:** AI-generated DB Schema & FastAPI boilerplate (CRUD).
-*   **Phase 2:** Vite + TS project setup & responsive UI component generation.
-*   **Phase 3:** Integration of Order state machine and File Upload logic.
-*   **Phase 4:** End-to-end testing (AI-generated unit tests) & Bug fixing.
-
----
-
-这份文档现在可以作为你 AI 助手的 "System Prompt" 或者开发指南。既然你要用 Vite + TS，建议你在初始化项目时直接让 AI 帮你生成对应的 **Interface** 定义，这样后期对接 FastAPI 的 JSON 响应时会非常丝滑。需要我帮你写一份初始的 `types.ts` 定义吗？
+7. AI-Assisted Development Plan (3-4 Days)
+Day 1: DB Schema setup & FastAPI CRUD generation for Products and Users.
+Day 2: Frontend Project Setup. Implement 3x3 Grid, Pagination, and Sidebar Layout.
+Day 3: Core Logic: Cart, Promo Code validation, PostgreSQL Transaction for ordering, and PDF generation.
+Day 4: Admin Portal (User Mgmt/Promo Mgmt) and E2E Testing (Auth & Role Isolation).

@@ -9,12 +9,12 @@ export function AdminNavBar({ onBackToShop }: AdminNavBarProps) {
   const isAdmin = role === 'admin';
 
   const handleSwitchRole = () => {
-    setRole(isAdmin ? 'staff' : 'admin');
+    setRole(isAdmin ? 'salesman' : 'admin');
     if (!isAdmin) {
       // Switching to admin - scroll to admin section
       document.getElementById('admin-section')?.scrollIntoView({ behavior: 'smooth' });
     } else {
-      // Switching to staff - scroll to top
+      // Switching to salesman - scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -30,7 +30,7 @@ export function AdminNavBar({ onBackToShop }: AdminNavBarProps) {
           onClick={handleSwitchRole}
           className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm font-medium transition-colors"
         >
-          Switch to Staff
+          Switch to Salesman
         </button>
         <button
           onClick={onBackToShop}

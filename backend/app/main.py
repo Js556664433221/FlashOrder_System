@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
-from .routers import products_router, orders_router, payments_router, admin_router, auth_router
+from .routers import products_router, orders_router, payments_router, admin_router, auth_router, activity_router, promo_router, promo_validate_router, users_router, customers_router
 from .seed import seed_default_users
 
 app = FastAPI(title="FlashOrder Portal API", version="1.0.0")
@@ -25,6 +25,11 @@ app.include_router(orders_router)
 app.include_router(payments_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
+app.include_router(activity_router)
+app.include_router(promo_router)
+app.include_router(promo_validate_router)
+app.include_router(users_router)
+app.include_router(customers_router)
 
 
 @app.on_event("startup")

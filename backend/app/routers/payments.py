@@ -9,7 +9,7 @@ import uuid
 from ..database import get_db
 from ..models import Order, OrderItem, OrderStatusEnum, Payment
 from ..schemas import PaymentResponse, OrderItemHistory
-from ..auth.dependencies import get_current_active_user, MockUser
+from ..auth.dependencies import get_current_active_user, CurrentUser
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -19,7 +19,7 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "upl
 @router.get("/", response_model=list[PaymentResponse])
 async def list_payments(
     db: AsyncSession = Depends(get_db),
-    current_user: MockUser = Depends(get_current_active_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """List all payments with order details and items."""
     result = await db.execute(
@@ -58,7 +58,7 @@ async def list_payments(
 @router.get("/history", response_model=list[PaymentResponse])
 async def payment_history(
     db: AsyncSession = Depends(get_db),
-    current_user: MockUser = Depends(get_current_active_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     """Get comprehensive payment history with full order details."""
     result = await db.execute(
@@ -100,7 +100,7 @@ async def upload_receipt(
     order_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: MockUser = Depends(get_current_active_user)
+    current_user: CurrentUser = Depends(get_current_active_user)
 ):
     if file.content_type not in ["image/jpeg", "image/png", "application/pdf"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and PDF are allowed")
