@@ -516,7 +516,7 @@ async def update_order(
     if order_data.status is not None:
         new_status = order_data.status.value
 
-        # When transitioning to Paid, commit stock
+        # When transitioning to Paid, commit stock AND auto-transition
         if new_status == OrderStatusEnum.PAID.value:
             for item in order.items:
                 committed = await StockReservationService.commit_reservation(
@@ -528,6 +528,9 @@ async def update_order(
                         status_code=400,
                         detail=f"Failed to commit stock for product {item.product_id}"
                     )
+            # Auto-transition: Set to Preparing/Ready based on delivery method
+            order.status = OrderStatusEnum.PREPARING.value if order.delivery_method == DeliveryMethod.DELIVERY.value else OrderStatusEnum.READY_FOR_PICKUP.value
+            await db.flush()
 
         # When cancelling, release stock
         elif new_status == OrderStatusEnum.CANCELLED.value:
@@ -873,13 +876,30 @@ async def get_dashboard_summary(
     orders_result = await db.execute(select(Order))
     all_orders = orders_result.scalars().all()
 
-    total_orders = len(all_orders)
-    pending_orders = sum(1 for o in all_orders if o.status in [
+    # Define pending statuses - orders that still need action
+    pending_statuses = [
         OrderStatusEnum.PENDING_PAYMENT.value,
-        OrderStatusEnum.PAYMENT_UNDER_REVIEW.value
-    ])
-    paid_orders = sum(1 for o in all_orders if o.status == OrderStatusEnum.PAID.value)
+        OrderStatusEnum.PAYMENT_UNDER_REVIEW.value,
+        OrderStatusEnum.PAID.value,
+        OrderStatusEnum.PREPARING.value,
+    ]
+
+    # Define completed/fulfilled statuses for revenue calculation
+    fulfilled_statuses = [
+        OrderStatusEnum.PAID.value,
+        OrderStatusEnum.PREPARING.value,
+        OrderStatusEnum.READY_TO_SHIP.value,
+        OrderStatusEnum.READY_FOR_PICKUP.value,
+        OrderStatusEnum.READY_FOR_COLLECTION.value,
+        OrderStatusEnum.SHIPPED.value,
+        OrderStatusEnum.COMPLETED.value,
+    ]
+
+    total_orders = len(all_orders)
+    pending_orders = sum(1 for o in all_orders if o.status in pending_statuses)
     cancelled_orders = sum(1 for o in all_orders if o.status == OrderStatusEnum.CANCELLED.value)
+    # Count orders that have been paid and are in fulfillment pipeline
+    fulfilled_orders = sum(1 for o in all_orders if o.status in fulfilled_statuses)
 
     products_result = await db.execute(select(Product))
     all_products = products_result.scalars().all()
@@ -894,18 +914,19 @@ async def get_dashboard_summary(
         for p in all_products if (p.physical_stock - p.reserved_stock) <= LOW_STOCK_THRESHOLD
     ]
 
-    total_revenue = sum(o.total_price for o in all_orders if o.status == OrderStatusEnum.PAID.value)
+    # Revenue from orders that have been paid (all fulfilled statuses)
+    total_revenue = sum(o.total_price for o in all_orders if o.status in fulfilled_statuses)
 
-    # Calculate today's sales
+    # Calculate today's sales from fulfilled orders
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     today_orders = [o for o in all_orders if o.created_at and o.created_at >= today_start]
-    today_sales = sum(o.total_price for o in today_orders if o.status == OrderStatusEnum.PAID.value)
+    today_sales = sum(o.total_price for o in today_orders if o.status in fulfilled_statuses)
 
     return DashboardSummaryResponse(
         total_orders=total_orders,
         today_sales=today_sales,
         pending_orders=pending_orders,
-        paid_orders=paid_orders,
+        paid_orders=fulfilled_orders,
         cancelled_orders=cancelled_orders,
         low_stock_alerts=low_stock_alerts,
         total_revenue=total_revenue
