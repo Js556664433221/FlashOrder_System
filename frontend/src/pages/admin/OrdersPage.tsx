@@ -163,6 +163,28 @@ export function OrdersPage() {
     }
   };
 
+  const handleDonePreparing = async (order: Order) => {
+    const actionText = order.delivery_method === 'Delivery'
+      ? 'This will mark the order as Shipped and notify the customer.'
+      : 'This will mark the order as Ready for Collection and notify the customer.';
+
+    if (!confirm(`Mark order ${order.order_number} as done preparing?\n\n${actionText}`)) return;
+
+    setIsUpdating(true);
+    try {
+      const result = await api.donePreparing(order.id);
+      alert(
+        `Order ${order.order_number} has been updated to "${result.status}".\n\n` +
+        `Customer "${order.customer_name}" has been notified.`
+      );
+      await fetchOrders();
+    } catch (e) {
+      alert(`Failed to mark as done preparing: ${(e as Error).message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const openProofModal = (order: Order) => {
     setIsModalLoading(true);
     setSelectedOrder(order);
@@ -375,18 +397,18 @@ export function OrdersPage() {
                     Mark Ready for Pickup
                   </button>
                 )}
-                {/* Preparing - Add Ready button for delivery orders */}
-                {order.status === 'Preparing' && order.delivery_method === 'Delivery' && (
+                {/* Preparing - Done Preparing button */}
+                {order.status === 'Preparing' && (
                   <button
-                    onClick={() => handleMarkReady(order)}
+                    onClick={() => handleDonePreparing(order)}
                     disabled={isUpdating}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
                   >
-                    <Bell className="w-3 h-3" />
-                    Mark Ready to Ship
+                    <Check className="w-3 h-3" />
+                    Done Preparing
                   </button>
                 )}
-                {/* Ready for Pickup / Ready to Ship - Generate Invoice */}
+                {/* Ready for Pickup / Ready to Ship / Ready for Collection - Generate Invoice */}
                 {(order.status === 'Ready for Pickup' || order.status === 'Ready to Ship') && (
                   <button
                     onClick={() => handleGenerateInvoice(order)}
@@ -894,21 +916,21 @@ export function OrdersPage() {
                       Mark Ready for Pickup
                     </button>
                   )}
-                  {/* Preparing Delivery - Mark Ready to Ship */}
-                  {selectedOrder.status === 'Preparing' && selectedOrder.delivery_method === 'Delivery' && (
+                  {/* Preparing - Done Preparing */}
+                  {selectedOrder.status === 'Preparing' && (
                     <button
                       onClick={() => {
-                        handleMarkReady(selectedOrder);
+                        handleDonePreparing(selectedOrder);
                         setShowDetailModal(false);
                       }}
                       disabled={isUpdating}
-                      className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                      className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
-                      <Bell className="w-4 h-4" />
-                      Mark Ready to Ship
+                      <Check className="w-4 h-4" />
+                      Done Preparing
                     </button>
                   )}
-                  {/* Ready for Pickup / Ready to Ship - Generate Invoice */}
+                  {/* Ready for Pickup / Ready to Ship / Ready for Collection - Generate Invoice */}
                   {(selectedOrder.status === 'Ready for Pickup' || selectedOrder.status === 'Ready to Ship') && (
                     <>
                       <button

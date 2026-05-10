@@ -203,6 +203,7 @@ def validate_status_transition(current_status: str, new_status: str) -> bool:
         OrderStatusEnum.PREPARING.value: [
             OrderStatusEnum.READY_TO_SHIP.value,
             OrderStatusEnum.READY_FOR_PICKUP.value,
+            OrderStatusEnum.READY_FOR_COLLECTION.value,
             OrderStatusEnum.SHIPPED.value,
             OrderStatusEnum.COMPLETED.value,
             OrderStatusEnum.CANCELLED.value,
@@ -217,6 +218,10 @@ def validate_status_transition(current_status: str, new_status: str) -> bool:
             OrderStatusEnum.COMPLETED.value,
             OrderStatusEnum.CANCELLED.value,
         ],
+        OrderStatusEnum.READY_FOR_COLLECTION.value: [
+            OrderStatusEnum.COMPLETED.value,
+            OrderStatusEnum.CANCELLED.value,
+        ],
         OrderStatusEnum.SHIPPED.value: [
             OrderStatusEnum.COMPLETED.value,
         ],
@@ -228,9 +233,10 @@ def validate_status_transition(current_status: str, new_status: str) -> bool:
         OrderStatusEnum.CANCELLED.value: [],
         # Legacy string values for compatibility
         "Paid": ["Preparing", "Ready to Ship", "Ready for Pickup", "Shipped", "Completed", "Cancelled"],
-        "Preparing": ["Ready to Ship", "Ready for Pickup", "Shipped", "Completed", "Cancelled"],
+        "Preparing": ["Ready to Ship", "Ready for Pickup", "Ready for Collection", "Shipped", "Completed", "Cancelled"],
         "Ready to Ship": ["Shipped", "Completed", "Cancelled"],
         "Ready for Pickup": ["Shipped", "Completed", "Cancelled"],
+        "Ready for Collection": ["Completed", "Cancelled"],
         "Shipped": ["Completed"],
     }
     return new_status in valid_transitions.get(current_status, [])
@@ -283,7 +289,12 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_admin)
 ):
-    """Update product details or adjust stock levels."""
+    """
+    Update product details or adjust stock levels.
+
+    If stock_adjustment is provided, it will be added to current physical_stock.
+    Positive values add stock, negative values subtract stock.
+    """
     try:
         result = await db.execute(select(Product).filter(Product.id == product_id))
         product = result.scalar_one_or_none()
@@ -297,10 +308,20 @@ async def update_product(
             product.description = product_data.description
         if product_data.image_url is not None:
             product.image_url = product_data.image_url
+        if product_data.category is not None:
+            product.category = product_data.category
         if product_data.price is not None:
             product.price = product_data.price
-        if product_data.stock_quantity is not None:
-            product.physical_stock = product_data.stock_quantity
+
+        # Handle stock adjustment (add or subtract from current)
+        if product_data.stock_adjustment is not None:
+            new_stock = product.physical_stock + product_data.stock_adjustment
+            if new_stock < 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot reduce stock below 0. Current: {product.physical_stock}, Adjustment: {product_data.stock_adjustment}"
+                )
+            product.physical_stock = new_stock
 
         product.version += 1
 
@@ -543,7 +564,12 @@ async def verify_payment(
     db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_admin)
 ):
-    """Admin endpoint to verify payment receipts. Auto-transitions status based on delivery method."""
+    """
+    Admin endpoint to verify payment receipts.
+    Sets status to 'Paid', then auto-transitions based on delivery method:
+    - Delivery: Paid → Preparing
+    - Pickup: Paid → Ready for Pickup
+    """
     result = await db.execute(
         select(Order)
         .options(
@@ -564,60 +590,79 @@ async def verify_payment(
         )
 
     if verify_data.action == "approve":
+        # Extract item data before async operations to avoid lazy loading issues
+        order_items_data = [
+            {"product_id": item.product_id, "quantity": item.quantity}
+            for item in order.items
+        ]
+        delivery_method = order.delivery_method
+        order_number = order.order_number
+
         # Commit stock for each item
-        for item in order.items:
+        for item_data in order_items_data:
             committed = await StockReservationService.commit_reservation(
-                db, item.product_id, item.quantity
+                db, item_data["product_id"], item_data["quantity"]
             )
             if not committed:
                 await db.rollback()
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Failed to deduct stock for product {item.product_id}"
+                    detail=f"Failed to deduct stock for product {item_data['product_id']}"
                 )
 
-        # Determine new status based on delivery method
-        if order.delivery_method == DeliveryMethod.PICKUP.value:
+        # First set status to "Paid"
+        order.status = OrderStatusEnum.PAID.value
+        await db.flush()
+
+        # Immediately auto-transition based on delivery method
+        if delivery_method == DeliveryMethod.PICKUP.value:
             new_status = OrderStatusEnum.READY_FOR_PICKUP.value
         else:
             new_status = OrderStatusEnum.PREPARING.value
 
-        old_status = order.status
-        order.status = new_status
-
-        # Log the automatic status transition
+        # Log the status transition
         await ActivityLogService.log(
             db=db,
             user_id=current_user.id,
             action=ActivityAction.VERIFY_PAYMENT.value,
             entity_type="order",
             entity_id=order_id,
-            description=f"Payment confirmed. Order status updated to {new_status}.",
+            description=f"Payment verified. Order auto-transitioned to '{new_status}'.",
             extra_data={
-                "order_number": order.order_number,
-                "old_status": old_status,
-                "new_status": new_status,
-                "delivery_method": order.delivery_method
+                "order_number": order_number,
+                "old_status": OrderStatusEnum.PAYMENT_UNDER_REVIEW.value,
+                "paid_status_duration": "immediate",
+                "final_status": new_status,
+                "delivery_method": delivery_method
             }
         )
+
+        # Update to final status
+        order.status = new_status
 
         await db.commit()
         return VerifyPaymentResponse(
             order_id=order.id, order_number=order.order_number, status=order.status,
-            action="approve", message=f"Payment verified. Order status updated to {new_status}.", stock_action="deducted"
+            action="approve", message=f"Payment verified. Order auto-transitioned to '{new_status}'.", stock_action="deducted"
         )
 
     elif verify_data.action == "reject":
+        # Extract item data before async operations
+        order_items_data = [
+            {"product_id": item.product_id, "quantity": item.quantity}
+            for item in order.items
+        ]
+
         order.status = OrderStatusEnum.CANCELLED.value
-        for item in order.items:
+        for item_data in order_items_data:
             released = await StockReservationService.release_stock(
-                db, item.product_id, item.quantity
+                db, item_data["product_id"], item_data["quantity"]
             )
             if not released:
                 await db.rollback()
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Failed to release stock for product {item.product_id}"
+                    detail=f"Failed to release stock for product {item_data['product_id']}"
                 )
         await db.commit()
         return VerifyPaymentResponse(
@@ -665,7 +710,12 @@ async def confirm_payment(
     db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_admin)
 ):
-    """Admin endpoint to confirm payment. Deducts stock and auto-transitions status based on delivery method."""
+    """
+    Admin endpoint to confirm payment.
+    Sets status to 'Paid', then auto-transitions based on delivery method:
+    - Delivery: Paid → Preparing
+    - Pickup: Paid → Ready for Pickup
+    """
     result = await db.execute(
         select(Order)
         .options(
@@ -685,42 +735,54 @@ async def confirm_payment(
             detail=f"Order is not under review. Current status: {order.status}"
         )
 
+    # Extract item data before async operations to avoid lazy loading issues
+    order_items_data = [
+        {"product_id": item.product_id, "quantity": item.quantity}
+        for item in order.items
+    ]
+    delivery_method = order.delivery_method
+
     # Deduct physical_stock and reserved_stock for each item
-    for item in order.items:
+    for item_data in order_items_data:
         success = await StockReservationService.commit_reservation(
-            db, item.product_id, item.quantity
+            db, item_data["product_id"], item_data["quantity"]
         )
         if not success:
             await db.rollback()
             raise HTTPException(
                 status_code=400,
-                detail=f"Failed to commit stock for product {item.product_id}"
+                detail=f"Failed to commit stock for product {item_data['product_id']}"
             )
 
-    # Determine new status based on delivery method
-    if order.delivery_method == DeliveryMethod.PICKUP.value:
+    # First set status to "Paid"
+    order.status = OrderStatusEnum.PAID.value
+    await db.flush()
+
+    # Immediately auto-transition based on delivery method
+    if delivery_method == DeliveryMethod.PICKUP.value:
         new_status = OrderStatusEnum.READY_FOR_PICKUP.value
     else:
         new_status = OrderStatusEnum.PREPARING.value
 
-    old_status = order.status
-    order.status = new_status
-
-    # Log the automatic status transition
+    # Log the status transition
     await ActivityLogService.log(
         db=db,
         user_id=current_user.id,
         action=ActivityAction.VERIFY_PAYMENT.value,
         entity_type="order",
         entity_id=order_id,
-        description=f"Payment confirmed. Order status updated to {new_status}.",
+        description=f"Payment verified. Order auto-transitioned to '{new_status}'.",
         extra_data={
             "order_number": order.order_number,
-            "old_status": old_status,
-            "new_status": new_status,
-            "delivery_method": order.delivery_method
+            "old_status": OrderStatusEnum.PAYMENT_UNDER_REVIEW.value,
+            "paid_status_duration": "immediate",
+            "final_status": new_status,
+            "delivery_method": delivery_method
         }
     )
+
+    # Update to final status
+    order.status = new_status
 
     await db.commit()
 
@@ -1153,3 +1215,144 @@ async def promote_user_to_admin(
         status=UserStatus.ACTIVE.value if user.is_active == 1 else UserStatus.SUSPENDED.value,
         message=f"User '{user.username}' has been promoted to Admin"
     )
+
+
+# Notification Service for simulating customer notifications
+class NotificationService:
+    """Mock notification service for customer updates."""
+
+    @staticmethod
+    def notify_order_update(order_number: str, customer_name: str, new_status: str, delivery_method: str) -> dict:
+        """
+        Simulate sending a notification to customer.
+        In production, this would integrate with SMS, email, or push notification services.
+        """
+        notification_message = {
+            "order_number": order_number,
+            "customer_name": customer_name,
+            "new_status": new_status,
+            "delivery_method": delivery_method,
+            "notification_type": "order_status_update",
+        }
+
+        # Log the notification (simulated)
+        logger.info(
+            f"[NOTIFICATION] Order {order_number} ({delivery_method}): "
+            f"Customer '{customer_name}' notified of status change to '{new_status}'"
+        )
+
+        # Simulate notification content based on status
+        if new_status == OrderStatusEnum.SHIPPED.value:
+            notification_message["message"] = (
+                f"Great news! Your order {order_number} has been shipped and is on its way to you."
+            )
+        elif new_status == OrderStatusEnum.READY_FOR_COLLECTION.value:
+            notification_message["message"] = (
+                f"Your order {order_number} is ready for collection! "
+                f"Please visit us to pick up your items."
+            )
+        elif new_status == OrderStatusEnum.READY_FOR_PICKUP.value:
+            notification_message["message"] = (
+                f"Your order {order_number} is ready for pickup! "
+                f"Please visit us to collect your items."
+            )
+        elif new_status == OrderStatusEnum.COMPLETED.value:
+            notification_message["message"] = (
+                f"Your order {order_number} has been completed. Thank you for your purchase!"
+            )
+        else:
+            notification_message["message"] = (
+                f"Your order {order_number} status has been updated to: {new_status}"
+            )
+
+        return notification_message
+
+
+@router.post("/orders/{order_id}/done-preparing", response_model=AdminOrderResponse)
+async def done_preparing(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_admin)
+):
+    """
+    Mark an order as done preparing.
+
+    Based on delivery method:
+    - Delivery: Status -> Shipped
+    - Pickup: Status -> Ready for Collection
+
+    Notifies the customer of the status change.
+    """
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product),
+            selectinload(Order.payments)
+        )
+        .filter(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status != OrderStatusEnum.PREPARING.value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order is not in 'Preparing' status. Current status: {order.status}"
+        )
+
+    # Determine new status based on delivery method
+    if order.delivery_method == DeliveryMethod.DELIVERY.value:
+        new_status = OrderStatusEnum.SHIPPED.value
+    elif order.delivery_method == DeliveryMethod.PICKUP.value:
+        new_status = OrderStatusEnum.READY_FOR_COLLECTION.value
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown delivery method: {order.delivery_method}"
+        )
+
+    # Update status
+    old_status = order.status
+    order.status = new_status
+
+    # Log the status change
+    await ActivityLogService.log(
+        db=db,
+        user_id=current_user.id,
+        action=ActivityAction.UPDATE_ORDER.value,
+        entity_type="order",
+        entity_id=order_id,
+        description=f"Order marked as done preparing. Status changed from '{old_status}' to '{new_status}'.",
+        extra_data={
+            "order_number": order.order_number,
+            "old_status": old_status,
+            "new_status": new_status,
+            "delivery_method": order.delivery_method
+        }
+    )
+
+    await db.commit()
+
+    # Notify customer (simulated)
+    notification = NotificationService.notify_order_update(
+        order_number=order.order_number,
+        customer_name=order.customer_name,
+        new_status=new_status,
+        delivery_method=order.delivery_method
+    )
+    logger.info(f"Notification sent: {notification}")
+
+    # Reload order with relationships
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product),
+            selectinload(Order.payments)
+        )
+        .filter(Order.id == order_id)
+    )
+    order = result.scalar_one()
+
+    return build_admin_order_response(order)

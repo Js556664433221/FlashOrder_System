@@ -34,6 +34,7 @@ class OrderStatusEnum(str, enum.Enum):
     PREPARING = "Preparing"
     READY_TO_SHIP = "Ready to Ship"
     READY_FOR_PICKUP = "Ready for Pickup"
+    READY_FOR_COLLECTION = "Ready for Collection"
     SHIPPED = "Shipped"
     COMPLETED = "Completed"
     CANCEL_REQUESTED = "Cancel Requested"

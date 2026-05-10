@@ -1,6 +1,6 @@
 import type { Product, Order, Payment, AdminDashboard, CheckoutData, PromoValidationResult, CustomerProfile, CustomerProfileCreate } from './types';
 
-const API_BASE = 'http://localhost:8002';
+const API_BASE = '/api';
 
 function authHeaders(role: 'admin' | 'salesman' | null): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -382,6 +382,18 @@ export const api = {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || 'Failed to reject payment');
+    }
+    return res.json();
+  },
+
+  async donePreparing(orderId: number, role?: 'admin' | 'salesman' | null): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/orders/${orderId}/done-preparing`, {
+      method: 'POST',
+      headers: authHeaders(role || 'admin'),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Failed to mark as done preparing');
     }
     return res.json();
   },
